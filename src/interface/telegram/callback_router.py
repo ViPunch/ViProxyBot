@@ -63,24 +63,7 @@ async def callback_install_screen(
     state: FSMContext = None,
 ) -> None:
     await state.set_state(MenuStates.idle)
-    statuses: dict[str, tuple[bool, int | None]] = {}
-    for protocol_type in ProtocolType:
-        adapter = (
-            protocol_registry.get(protocol_type)
-            if protocol_registry
-            else None
-        )
-        if adapter is None:
-            statuses[protocol_type.value] = (False, None)
-            continue
-        try:
-            health = await adapter.health()
-            if health.healthy:
-                statuses[protocol_type.value] = (True, None)
-            else:
-                statuses[protocol_type.value] = (False, None)
-        except Exception:
-            statuses[protocol_type.value] = (False, None)
+    statuses = await _get_statuses(protocol_registry)
 
     await callback.message.edit_text(
         t(lang, "install_screen_title"),
@@ -177,17 +160,28 @@ async def _do_install(
         result = await adapter.install(
             port, getattr(adapter, "public_host", "")
         )
+        # After successful install, show client list for this protocol
+        from src.interface.telegram.keyboards import client_list_keyboard
+
+        clients = _get_client_names(adapter)
         await callback.message.edit_text(
             t(
                 lang,
                 "install_success",
                 protocol=protocol.value.upper(),
                 port=result.listen_port,
+            )
+            + "\n\n"
+            + t(lang, "clients_list_title", protocol=protocol.value.upper())
+            + "\n"
+            + t(lang, "clients_empty"),
+            reply_markup=client_list_keyboard(
+                protocol_name, clients, lang
             ),
-            reply_markup=install_screen_keyboard({}, lang),
         )
     except Exception as exc:
         logger.exception("Install failed")
+        statuses = await _get_statuses(protocol_registry)
         await callback.message.edit_text(
             t(
                 lang,
@@ -195,7 +189,7 @@ async def _do_install(
                 protocol=protocol.value.upper(),
                 error=str(exc),
             ),
-            reply_markup=install_screen_keyboard({}, lang),
+            reply_markup=install_screen_keyboard(statuses, lang),
         )
 
 
@@ -562,3 +556,27 @@ def _get_client_names(adapter) -> list[str]:
         return [c.get("email", "?") for c in clients]
     except Exception:
         return []
+
+
+async def _get_statuses(
+    protocol_registry: ProtocolRegistry | None,
+) -> dict[str, tuple[bool, int | None]]:
+    statuses: dict[str, tuple[bool, int | None]] = {}
+    for protocol_type in ProtocolType:
+        adapter = (
+            protocol_registry.get(protocol_type)
+            if protocol_registry
+            else None
+        )
+        if adapter is None:
+            statuses[protocol_type.value] = (False, None)
+            continue
+        try:
+            health = await adapter.health()
+            if health.healthy:
+                statuses[protocol_type.value] = (True, None)
+            else:
+                statuses[protocol_type.value] = (False, None)
+        except Exception:
+            statuses[protocol_type.value] = (False, None)
+    return statuses

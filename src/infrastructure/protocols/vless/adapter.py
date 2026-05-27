@@ -15,7 +15,6 @@ from src.infrastructure.protocols.base import (
 )
 from src.infrastructure.protocols.vless.config_writer import (
     add_client_to_config,
-    create_initial_config,
     get_clients_from_config,
     get_listen_port_from_config,
     load_config,
@@ -29,10 +28,12 @@ logger = logging.getLogger(__name__)
 
 XRAY_BINARY = "/usr/local/bin/xray"
 XRAY_SERVICE = "/etc/systemd/system/xray.service"
+XRAY_CONFIG_DIR = Path("/usr/local/etc/xray")
+XRAY_CONFIG_PATH = XRAY_CONFIG_DIR / "config.json"
 XRAY_INSTALL_URL = (
-    "https://github.com/XTLS/Xray-core/releases/latest/download/"
-    "Xray-linux-64.zip"
+    "https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 )
+VLESS_REALITY_SNI = "www.microsoft.com"
 
 
 class VlessAdapter(ProtocolAdapter):
@@ -46,12 +47,20 @@ class VlessAdapter(ProtocolAdapter):
         self.backups_dir = backups_dir
         self.public_host = public_host
         self.service_name = "xray"
+        self._listen_port: int = 443
+        self._private_key: str = ""
+        self._public_key: str = ""
+        self._short_id: str = ""
 
     async def detect(self) -> ProtocolStatus:
+        if not Path(XRAY_BINARY).exists():
+            return ProtocolStatus.NOT_INSTALLED
         if not self.config_path.exists():
             return ProtocolStatus.NOT_INSTALLED
         try:
-            result = await run_command(["systemctl", "is-active", self.service_name])
+            result = await run_command(
+                ["systemctl", "is-active", self.service_name]
+            )
             if result.success and result.stdout == "active":
                 return ProtocolStatus.ACTIVE
             return ProtocolStatus.DEGRADED
@@ -60,17 +69,26 @@ class VlessAdapter(ProtocolAdapter):
 
     async def install(self, listen_port: int, public_host: str) -> InstallResult:
         self.public_host = public_host
+        self._listen_port = listen_port
 
         if not Path(XRAY_BINARY).exists():
-            await self._download_xray()
+            await self._install_xray()
+
+        await self._generate_reality_keys()
 
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        create_initial_config(self.config_path, listen_port)
+        self._create_reality_config(listen_port)
 
         await self._write_systemd_unit()
-        await run_command(["sudo", "systemctl", "daemon-reload"])
-        await run_command(["sudo", "systemctl", "enable", self.service_name])
-        await run_command(["sudo", "systemctl", "restart", self.service_name])
+        await run_command(
+            ["sudo", "systemctl", "daemon-reload"]
+        )
+        await run_command(
+            ["sudo", "systemctl", "enable", self.service_name]
+        )
+        await run_command(
+            ["sudo", "systemctl", "restart", self.service_name]
+        )
 
         await self._open_port(listen_port)
 
@@ -84,7 +102,9 @@ class VlessAdapter(ProtocolAdapter):
     async def create_client(self, external_name: str) -> tuple[str, str]:
         config = load_config(self.config_path)
         credential = str(uuid.uuid4())
-        updated_config = add_client_to_config(config, credential, external_name)
+        updated_config = add_client_to_config(
+            config, credential, external_name
+        )
         save_config(self.config_path, updated_config)
         if not await self.reload_service():
             raise ServiceReloadError("Failed to reload xray service")
@@ -93,7 +113,9 @@ class VlessAdapter(ProtocolAdapter):
     async def delete_client(self, identifier: str) -> None:
         config = load_config(self.config_path)
         clients = get_clients_from_config(config)
-        if not any(client.get("email") == identifier for client in clients):
+        if not any(
+            client.get("email") == identifier for client in clients
+        ):
             raise ClientNotFoundError(identifier)
         updated_config = remove_client_from_config(config, identifier)
         save_config(self.config_path, updated_config)
@@ -111,7 +133,9 @@ class VlessAdapter(ProtocolAdapter):
 
     async def health(self) -> HealthResult:
         try:
-            result = await run_command(["systemctl", "is-active", self.service_name])
+            result = await run_command(
+                ["systemctl", "is-active", self.service_name]
+            )
             healthy = result.success and result.stdout == "active"
             status = result.stdout if result.stdout else "unknown"
             message = (
@@ -119,7 +143,9 @@ class VlessAdapter(ProtocolAdapter):
                 if healthy
                 else result.stderr or "Service is not active"
             )
-            return HealthResult(healthy=healthy, status=status, message=message)
+            return HealthResult(
+                healthy=healthy, status=status, message=message
+            )
         except FileNotFoundError:
             return HealthResult(
                 healthy=False,
@@ -132,7 +158,9 @@ class VlessAdapter(ProtocolAdapter):
             return None
         self.backups_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        backup_path = self.backups_dir / f"xray-config-{timestamp}.json"
+        backup_path = (
+            self.backups_dir / f"xray-config-{timestamp}.json"
+        )
         shutil.copy2(self.config_path, backup_path)
         return str(backup_path)
 
@@ -148,17 +176,80 @@ class VlessAdapter(ProtocolAdapter):
                 )
         raise ClientNotFoundError(email)
 
-    async def _download_xray(self) -> None:
-        logger.info("Downloading Xray-core")
-        await run_command(
+    async def _install_xray(self) -> None:
+        logger.info("Installing Xray-core via official script")
+        result = await run_command(
             [
                 "sudo", "bash", "-c",
-                f"curl -sL {XRAY_INSTALL_URL} -o /tmp/xray.zip "
-                f"&& unzip -o /tmp/xray.zip xray -d /usr/local/bin/ "
-                f"&& chmod +x {XRAY_BINARY}",
+                f"curl -L {XRAY_INSTALL_URL} | bash -s -- install",
             ],
-            timeout=120.0,
+            timeout=180.0,
         )
+        if not result.success:
+            logger.error(
+                "Xray install failed: %s", result.stderr
+            )
+            raise RuntimeError(
+                f"Xray installation failed: {result.stderr}"
+            )
+
+    async def _generate_reality_keys(self) -> None:
+        logger.info("Generating REALITY keys")
+        result = await run_command(
+            [XRAY_BINARY, "x25519"]
+        )
+        if not result.success:
+            raise RuntimeError("Failed to generate REALITY keys")
+
+        for line in result.stdout.splitlines():
+            if "Private key:" in line:
+                self._private_key = line.split(":", 1)[1].strip()
+            elif "Public key:" in line:
+                self._public_key = line.split(":", 1)[1].strip()
+
+        self._short_id = uuid.uuid4().hex[:16]
+
+        if not self._private_key or not self._public_key:
+            raise RuntimeError("Failed to parse REALITY keys")
+
+    def _create_reality_config(self, listen_port: int) -> None:
+        config = {
+            "log": {"loglevel": "warning"},
+            "inbounds": [
+                {
+                    "port": listen_port,
+                    "protocol": "vless",
+                    "settings": {
+                        "clients": [],
+                        "decryption": "none",
+                    },
+                    "streamSettings": {
+                        "network": "tcp",
+                        "security": "reality",
+                        "realitySettings": {
+                            "show": False,
+                            "dest": f"{VLESS_REALITY_SNI}:443",
+                            "xver": 0,
+                            "serverNames": [
+                                VLESS_REALITY_SNI,
+                                f"www.{VLESS_REALITY_SNI}",
+                            ],
+                            "privateKey": self._private_key,
+                            "shortIds": [self._short_id],
+                        },
+                    },
+                    "sniffing": {
+                        "enabled": True,
+                        "destOverride": ["http", "tls"],
+                    },
+                }
+            ],
+            "outbounds": [
+                {"protocol": "freedom", "tag": "direct"},
+                {"protocol": "blackhole", "tag": "block"},
+            ],
+        }
+        save_config(self.config_path, config)
 
     async def _write_systemd_unit(self) -> None:
         unit = (
@@ -174,9 +265,13 @@ class VlessAdapter(ProtocolAdapter):
         )
         tmp_path = "/tmp/vpnbot-xray.service"
         Path(tmp_path).write_text(unit, encoding="utf-8")
-        await run_command(["sudo", "cp", tmp_path, XRAY_SERVICE])
+        await run_command(
+            ["sudo", "cp", tmp_path, XRAY_SERVICE]
+        )
 
     async def _open_port(self, port: int) -> None:
         ufw_check = await run_command(["which", "ufw"])
         if ufw_check.success:
-            await run_command(["sudo", "ufw", "allow", str(port)])
+            await run_command(
+                ["sudo", "ufw", "allow", str(port)]
+            )

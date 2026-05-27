@@ -30,10 +30,9 @@ logger = logging.getLogger(__name__)
 
 HYSTERIA_BINARY = "/usr/local/bin/hysteria"
 HYSTERIA_SERVICE = "/etc/systemd/system/hysteria.service"
-HYSTERIA_INSTALL_URL = (
-    "https://github.com/apernet/hysteria/releases/latest/download/"
-    "hysteria-linux-amd64"
-)
+HYSTERIA_CONFIG_DIR = Path("/etc/hysteria")
+HYSTERIA_CONFIG_PATH = HYSTERIA_CONFIG_DIR / "config.yaml"
+HYSTERIA_INSTALL_SCRIPT = "https://get.hy2.sh/"
 
 
 class Hysteria2Adapter(ProtocolAdapter):
@@ -47,6 +46,8 @@ class Hysteria2Adapter(ProtocolAdapter):
         self.backups_dir = backups_dir
         self.public_host = public_host
         self.service_name = "hysteria"
+        self._listen_port: int = 443
+        self._auth_password: str = ""
 
     async def detect(self) -> ProtocolStatus:
         if not Path(HYSTERIA_BINARY).exists():
@@ -54,7 +55,9 @@ class Hysteria2Adapter(ProtocolAdapter):
         if not self.config_path.exists():
             return ProtocolStatus.NOT_INSTALLED
         try:
-            result = await run_command(["systemctl", "is-active", self.service_name])
+            result = await run_command(
+                ["systemctl", "is-active", self.service_name]
+            )
             if result.success and result.stdout == "active":
                 return ProtocolStatus.ACTIVE
             return ProtocolStatus.DEGRADED
@@ -63,28 +66,34 @@ class Hysteria2Adapter(ProtocolAdapter):
 
     async def install(self, listen_port: int, public_host: str) -> InstallResult:
         self.public_host = public_host
+        self._listen_port = listen_port
 
         if not Path(HYSTERIA_BINARY).exists():
-            await self._download_hysteria()
+            await self._install_hysteria()
 
+        self._auth_password = str(uuid.uuid4())
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        auth_password = str(uuid.uuid4())
-        stats_secret = str(uuid.uuid4())
 
         create_server_config(
             self.config_path,
             listen_port,
             cert_path="/etc/hysteria/cert.pem",
             key_path="/etc/hysteria/key.pem",
-            auth_password=auth_password,
+            auth_password=self._auth_password,
             stats_listen="127.0.0.1:25199",
-            stats_secret=stats_secret,
+            stats_secret=str(uuid.uuid4()),
         )
 
         await self._write_systemd_unit()
-        await run_command(["sudo", "systemctl", "daemon-reload"])
-        await run_command(["sudo", "systemctl", "enable", self.service_name])
-        await run_command(["sudo", "systemctl", "restart", self.service_name])
+        await run_command(
+            ["sudo", "systemctl", "daemon-reload"]
+        )
+        await run_command(
+            ["sudo", "systemctl", "enable", self.service_name]
+        )
+        await run_command(
+            ["sudo", "systemctl", "restart", self.service_name]
+        )
 
         await self._open_port_udp(listen_port)
 
@@ -114,7 +123,9 @@ class Hysteria2Adapter(ProtocolAdapter):
 
     async def health(self) -> HealthResult:
         try:
-            result = await run_command(["systemctl", "is-active", self.service_name])
+            result = await run_command(
+                ["systemctl", "is-active", self.service_name]
+            )
             healthy = result.success and result.stdout == "active"
             status = result.stdout if result.stdout else "unknown"
             message = (
@@ -122,7 +133,9 @@ class Hysteria2Adapter(ProtocolAdapter):
                 if healthy
                 else result.stderr or "Service is not active"
             )
-            return HealthResult(healthy=healthy, status=status, message=message)
+            return HealthResult(
+                healthy=healthy, status=status, message=message
+            )
         except FileNotFoundError:
             return HealthResult(
                 healthy=False,
@@ -135,7 +148,9 @@ class Hysteria2Adapter(ProtocolAdapter):
             return None
         self.backups_dir.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        backup_path = self.backups_dir / f"hysteria-config-{timestamp}.yaml"
+        backup_path = (
+            self.backups_dir / f"hysteria-config-{timestamp}.yaml"
+        )
         shutil.copy2(self.config_path, backup_path)
         return str(backup_path)
 
@@ -181,22 +196,27 @@ class Hysteria2Adapter(ProtocolAdapter):
                 }
         return result
 
-    async def _download_hysteria(self) -> None:
-        logger.info("Downloading Hysteria2")
-        await run_command(
+    async def _install_hysteria(self) -> None:
+        logger.info("Installing Hysteria2 via official script")
+        result = await run_command(
             [
                 "sudo", "bash", "-c",
-                f"curl -sL {HYSTERIA_INSTALL_URL} "
-                f"-o {HYSTERIA_BINARY} "
-                f"&& chmod +x {HYSTERIA_BINARY}",
+                f"curl -fsSL {HYSTERIA_INSTALL_SCRIPT} | bash",
             ],
-            timeout=120.0,
+            timeout=180.0,
         )
+        if not result.success:
+            logger.error(
+                "Hysteria2 install failed: %s", result.stderr
+            )
+            raise RuntimeError(
+                f"Hysteria2 installation failed: {result.stderr}"
+            )
 
     async def _write_systemd_unit(self) -> None:
         unit = (
             "[Unit]\n"
-            "Description=Hysteria2 Service\n"
+            "Description=Hysteria 2 Service\n"
             "After=network.target\n\n"
             "[Service]\n"
             f"ExecStart={HYSTERIA_BINARY} server "
@@ -208,12 +228,16 @@ class Hysteria2Adapter(ProtocolAdapter):
         )
         tmp_path = "/tmp/vpnbot-hysteria.service"
         Path(tmp_path).write_text(unit, encoding="utf-8")
-        await run_command(["sudo", "cp", tmp_path, HYSTERIA_SERVICE])
+        await run_command(
+            ["sudo", "cp", tmp_path, HYSTERIA_SERVICE]
+        )
 
     async def _open_port_udp(self, port: int) -> None:
         ufw_check = await run_command(["which", "ufw"])
         if ufw_check.success:
-            await run_command(["sudo", "ufw", "allow", f"{port}/udp"])
+            await run_command(
+                ["sudo", "ufw", "allow", f"{port}/udp"]
+            )
 
 
 def _extract_port(config: dict) -> int:
