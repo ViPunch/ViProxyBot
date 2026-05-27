@@ -100,6 +100,7 @@ ENCRYPTION_KEY=${ENCRYPTION_KEY_INPUT}
 VPS_PUBLIC_IP=${VPS_IP_INPUT}
 ENVEOF
   chmod 600 "${ENV_FILE}"
+  chown "${SERVICE_USER}:${SERVICE_USER}" "${ENV_FILE}"
 
   echo
   echo "  Сгенерированный ENCRYPTION_KEY (сохраните на случай восстановления):"
