@@ -3,7 +3,9 @@
     "allow": [
       "Bash(python -m py_compile src/interface/telegram/commands.py)",
       "Bash(python -m py_compile src/interface/telegram/i18n.py src/interface/telegram/keyboards.py scripts/install.sh)",
-      "Bash(bash -n scripts/install.sh)"
+      "Bash(bash -n scripts/install.sh)",
+      "Bash(bash -c 'input=\"8703296095\"; [[ \"${input}\" =~ ^[0-9]+\\(,[0-9]+\\)*$ ]] && echo \"MATCH\" || echo \"NO MATCH\"')",
+      "Bash(bash -c 'input=\"8703296095\"; echo \"len=${#input}\"; printf \"%d\\\\n\" \"${input}\" 2>&1; [[ \"${input}\" =~ ^[0-9]+$ ]] && echo \"MATCH2\" || echo \"NO2\"')"
     ]
   }
 }

@@ -73,19 +73,19 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   echo
 
   while true; do
-    read -rp "Telegram Bot Token: " BOT_TOKEN_INPUT
+    read -rp "Telegram Bot Token: " BOT_TOKEN_INPUT </dev/tty
     [[ -n "${BOT_TOKEN_INPUT}" ]] && break
     echo "  Токен не может быть пустым."
   done
 
   while true; do
-    read -rp "Ваш Telegram User ID (Admin ID): " ADMIN_IDS_INPUT
+    read -rp "Ваш Telegram User ID (Admin ID): " ADMIN_IDS_INPUT </dev/tty
     [[ "${ADMIN_IDS_INPUT}" =~ ^[0-9]+(,[0-9]+)*$ ]] && break
     echo "  Введите числовой ID (или несколько через запятую, без пробелов)."
   done
 
   while true; do
-    read -rp "Публичный IP этого сервера: " VPS_IP_INPUT
+    read -rp "Публичный IP этого сервера: " VPS_IP_INPUT </dev/tty
     [[ -n "${VPS_IP_INPUT}" ]] && break
     echo "  IP не может быть пустым."
   done
