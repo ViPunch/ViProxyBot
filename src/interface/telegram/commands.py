@@ -26,6 +26,7 @@ class MenuStates(StatesGroup):
     ask_domain = State()
     ask_custom_port = State()
     ask_client_name = State()
+    ask_ssl_domain = State()
 
 
 @router.message(Command("start"))
@@ -83,6 +84,11 @@ async def message_handler(
     # Handle custom domain input
     if current_state == "MenuStates:ask_domain":
         await _handle_custom_domain(message, lang, state, protocol_registry)
+        return
+
+    # Handle SSL domain input
+    if current_state == "MenuStates:ask_ssl_domain":
+        await _handle_ssl_domain(message, lang, state, protocol_registry)
         return
 
     # Handle client name input
@@ -147,6 +153,41 @@ async def _handle_custom_domain(
 
     await state.set_state(MenuStates.ask_custom_port)
     await state.update_data(install_domain=domain)
+
+    from src.interface.telegram.keyboards import port_selection_keyboard
+
+    await message.answer(
+        t(lang, "ask_port", protocol=protocol_name.upper()),
+        reply_markup=port_selection_keyboard(protocol_name, lang),
+    )
+
+
+async def _handle_ssl_domain(
+    message: Message,
+    lang: str | None,
+    state: Optional[FSMContext],
+    protocol_registry: Optional[ProtocolRegistry],
+) -> None:
+    text = (message.text or "").strip()
+
+    if text == t(lang, "btn_back"):
+        await state.set_state(None)
+        await message.answer(
+            t(lang, "install_screen_title"),
+            reply_markup=await _build_install_keyboard(lang, protocol_registry),
+        )
+        return
+
+    ssl_domain = text.strip()
+    if not ssl_domain:
+        await message.answer(t(lang, "ask_ssl_domain"))
+        return
+
+    data = await state.get_data()
+    protocol_name = data.get("install_protocol", "hysteria2")
+
+    await state.set_state(MenuStates.ask_custom_port)
+    await state.update_data(install_ssl_domain=ssl_domain)
 
     from src.interface.telegram.keyboards import port_selection_keyboard
 

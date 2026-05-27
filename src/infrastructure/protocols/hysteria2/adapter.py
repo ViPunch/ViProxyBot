@@ -75,15 +75,20 @@ class Hysteria2Adapter(ProtocolAdapter):
         self._auth_password = str(uuid.uuid4())
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Generate self-signed TLS certificates
-        domain = self._sni_domain or public_host
-        await self._generate_tls_certs(domain)
+        # Use SSL cert paths if set, otherwise generate self-signed
+        cert_path = getattr(self, "_cert_path", None)
+        key_path = getattr(self, "_key_path", None)
+        if not cert_path or not key_path:
+            domain = self._sni_domain or public_host
+            await self._generate_tls_certs(domain)
+            cert_path = "/etc/hysteria/cert.pem"
+            key_path = "/etc/hysteria/key.pem"
 
         create_server_config(
             self.config_path,
             listen_port,
-            cert_path="/etc/hysteria/cert.pem",
-            key_path="/etc/hysteria/key.pem",
+            cert_path=cert_path,
+            key_path=key_path,
             auth_password=self._auth_password,
             stats_listen="127.0.0.1:25199",
             stats_secret=str(uuid.uuid4()),

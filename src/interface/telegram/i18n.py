@@ -46,6 +46,29 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_sni_apple": "www.apple.com",
         "btn_sni_cloudflare": "cloudflare.com",
         "btn_custom_domain": "✏️ Другой домен",
+        "ask_ssl_type": "Выберите тип SSL сертификата:",
+        "btn_ssl_ip": "🔒 По IP (Let's Encrypt, 6 дней)",
+        "btn_ssl_domain": "🌐 По домену (Let's Encrypt, 90 дней)",
+        "btn_ssl_selfsigned": "🔧 Самоподписанный (10 лет)",
+        "ssl_ip_info": (
+            "IP сертификат действует ~6 дней и "
+            "автоматически обновляется. Требуется порт 80."
+        ),
+        "ssl_domain_info": (
+            "Доменный сертификат действует 90 дней и "
+            "автоматически обновляется. Требуется порт 80 "
+            "и домен, указанный на этот VPS."
+        ),
+        "ssl_selfsigned_info": (
+            "Самоподписанный сертификат. Клиентам нужно "
+            "будет принять предупреждение о безопасности."
+        ),
+        "ask_ssl_domain": (
+            "Введите домен (должен быть привязан "
+            "к IP этого сервера):"
+        ),
+        "ssl_success": "✅ SSL сертификат установлен.",
+        "ssl_error": "❌ Ошибка SSL: {error}",
         "install_success": "✅ {protocol} установлен на порту {port}.",
         "install_error": "❌ Ошибка установки {protocol}: {error}",
 
@@ -123,6 +146,28 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_sni_apple": "www.apple.com",
         "btn_sni_cloudflare": "cloudflare.com",
         "btn_custom_domain": "✏️ Other domain",
+        "ask_ssl_type": "Select SSL certificate type:",
+        "btn_ssl_ip": "🔒 By IP (Let's Encrypt, 6 days)",
+        "btn_ssl_domain": "🌐 By domain (Let's Encrypt, 90 days)",
+        "btn_ssl_selfsigned": "🔧 Self-signed (10 years)",
+        "ssl_ip_info": (
+            "IP certificate is valid for ~6 days and "
+            "auto-renews. Requires port 80."
+        ),
+        "ssl_domain_info": (
+            "Domain certificate is valid for 90 days and "
+            "auto-renews. Requires port 80 and domain "
+            "pointing to this VPS."
+        ),
+        "ssl_selfsigned_info": (
+            "Self-signed certificate. Clients will need "
+            "to accept security warning."
+        ),
+        "ask_ssl_domain": (
+            "Enter domain (must point to this server's IP):"
+        ),
+        "ssl_success": "✅ SSL certificate installed.",
+        "ssl_error": "❌ SSL error: {error}",
         "install_success": "✅ {protocol} installed on port {port}.",
         "install_error": "❌ {protocol} installation error: {error}",
 

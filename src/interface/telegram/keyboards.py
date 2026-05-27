@@ -137,6 +137,40 @@ def domain_selection_keyboard(
     )
 
 
+def ssl_selection_keyboard(
+    protocol: str,
+    lang: str | None = None,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_ssl_ip"),
+                    callback_data=f"ssl:{protocol}:ip",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_ssl_domain"),
+                    callback_data=f"ssl:{protocol}:domain",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_ssl_selfsigned"),
+                    callback_data=f"ssl:{protocol}:selfsigned",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="menu:install",
+                ),
+            ],
+        ]
+    )
+
+
 def client_protocol_keyboard(
     lang: str | None = None,
 ) -> InlineKeyboardMarkup:

@@ -117,6 +117,54 @@ async def callback_domain_selection(
         install_protocol=protocol_name,
         install_domain=domain_value,
     )
+
+    # For Hysteria2, show SSL selection first
+    if protocol_name == "hysteria2":
+        from src.interface.telegram.keyboards import ssl_selection_keyboard
+
+        await state.set_state(None)
+        await callback.message.edit_text(
+            t(lang, "ask_ssl_type"),
+            reply_markup=ssl_selection_keyboard(protocol_name, lang),
+        )
+        await callback.answer()
+        return
+
+    await callback.message.edit_text(
+        t(lang, "ask_port", protocol=protocol_name.upper()),
+        reply_markup=port_selection_keyboard(protocol_name, lang),
+    )
+    await callback.answer()
+
+
+# --- SSL selection: show port selection ---
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("ssl:")
+)
+async def callback_ssl_selection(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    parts = callback.data.split(":")
+    protocol_name = parts[1] if len(parts) > 1 else ""
+    ssl_type = parts[2] if len(parts) > 2 else ""
+
+    await state.update_data(install_ssl_type=ssl_type)
+
+    if ssl_type == "domain":
+        from src.interface.telegram.commands import MenuStates
+
+        await state.set_state(MenuStates.ask_ssl_domain)
+        await callback.message.edit_text(
+            t(lang, "ask_ssl_domain"),
+        )
+        await callback.answer()
+        return
+
+    await state.set_state(MenuStates.ask_custom_port)
     await callback.message.edit_text(
         t(lang, "ask_port", protocol=protocol_name.upper()),
         reply_markup=port_selection_keyboard(protocol_name, lang),
@@ -181,9 +229,11 @@ async def _do_install(
         await callback.answer("Protocol not available")
         return
 
-    # Get domain from state data
+    # Get domain and SSL info from state data
     data = await state.get_data() if state else {}
     domain = data.get("install_domain", "")
+    ssl_type = data.get("install_ssl_type", "")
+    ssl_domain = data.get("install_ssl_domain", "")
 
     await state.set_state(MenuStates.idle)
     await callback.message.edit_text(
@@ -195,6 +245,55 @@ async def _do_install(
         # Store domain in adapter for config generation
         if domain:
             setattr(adapter, "_sni_domain", domain)
+
+        # Handle SSL certificates for Hysteria2
+        if protocol_name == "hysteria2" and ssl_type:
+            from src.infrastructure import ssl_manager
+
+            cert_result = None
+            if ssl_type == "ip":
+                await callback.message.edit_text(
+                    t(lang, "ssl_ip_info")
+                    + "\n\nIssuing certificate..."
+                )
+                public_host = getattr(adapter, "public_host", "")
+                cert_result = await ssl_manager.issue_ip_certificate(
+                    public_host
+                )
+            elif ssl_type == "domain" and ssl_domain:
+                await callback.message.edit_text(
+                    t(lang, "ssl_domain_info")
+                    + "\n\nIssuing certificate..."
+                )
+                cert_result = await ssl_manager.issue_domain_certificate(
+                    ssl_domain
+                )
+            elif ssl_type == "selfsigned":
+                sni = domain or getattr(adapter, "public_host", "")
+                cert_result = await ssl_manager.generate_self_signed_cert(
+                    sni
+                )
+
+            if cert_result and cert_result.success:
+                setattr(adapter, "_cert_path", cert_result.cert_path)
+                setattr(adapter, "_key_path", cert_result.key_path)
+            elif cert_result and not cert_result.success:
+                logger.warning(
+                    "SSL cert failed: %s, using self-signed",
+                    cert_result.error,
+                )
+                sni = domain or getattr(adapter, "public_host", "")
+                cert_result = await ssl_manager.generate_self_signed_cert(
+                    sni
+                )
+                if cert_result.success:
+                    setattr(
+                        adapter, "_cert_path", cert_result.cert_path
+                    )
+                    setattr(
+                        adapter, "_key_path", cert_result.key_path
+                    )
+
         result = await adapter.install(
             port, getattr(adapter, "public_host", "")
         )
