@@ -11,9 +11,9 @@ class AppConfig(BaseModel):
     admin_ids: list[int]
     encryption_key: str
     vps_public_ip: str
-    db_path: Path = Field(default=Path("data/vpnbot.db"))
-    backups_dir: Path = Field(default=Path("data/backups"))
-    xray_config_dir: Path = Field(default=Path("data/xray"))
+    db_path: Path = Field(default=Path("/opt/vpnbot/data/vpnbot.db"))
+    backups_dir: Path = Field(default=Path("/opt/vpnbot/data/backups"))
+    xray_config_dir: Path = Field(default=Path("/opt/vpnbot/data/xray"))
     rate_limit_commands: int = Field(default=30)
     rate_limit_heavy_ops: int = Field(default=5)
     rate_limit_window: int = Field(default=60)
@@ -35,9 +35,15 @@ class AppConfig(BaseModel):
             admin_ids=admin_ids,
             encryption_key=os.environ["ENCRYPTION_KEY"],
             vps_public_ip=os.environ["VPS_PUBLIC_IP"],
-            db_path=Path(os.environ.get("DB_PATH", "data/vpnbot.db")),
-            backups_dir=Path(os.environ.get("BACKUPS_DIR", "data/backups")),
+            db_path=Path(
+                os.environ.get("DB_PATH", "/opt/vpnbot/data/vpnbot.db")
+            ),
+            backups_dir=Path(
+                os.environ.get("BACKUPS_DIR", "/opt/vpnbot/data/backups")
+            ),
             xray_config_dir=Path(
-                os.environ.get("XRAY_CONFIG_DIR", "data/xray")
+                os.environ.get(
+                    "XRAY_CONFIG_DIR", "/opt/vpnbot/data/xray"
+                )
             ),
         )
