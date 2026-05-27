@@ -4,17 +4,18 @@ import logging
 
 from aiogram import Router
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery
 
 from src.domain.enums import ProtocolType
 from src.domain.exceptions import ClientNotFoundError
+from src.interface.telegram.commands import MenuStates
 from src.interface.telegram.i18n import t
 from src.interface.telegram.keyboards import (
     client_list_keyboard,
     client_protocol_keyboard,
     client_select_keyboard,
     confirm_keyboard,
+    domain_selection_keyboard,
     install_screen_keyboard,
     main_menu_keyboard,
     port_selection_keyboard,
@@ -24,12 +25,6 @@ from src.services.protocol_registry import ProtocolRegistry
 logger = logging.getLogger(__name__)
 
 router = Router()
-
-
-class MenuStates(StatesGroup):
-    idle = State()
-    ask_custom_port = State()
-    ask_client_name = State()
 
 
 # --- Main menu ---
@@ -72,7 +67,7 @@ async def callback_install_screen(
     await callback.answer()
 
 
-# --- Install protocol: show port selection ---
+# --- Install protocol: show domain selection ---
 
 
 @router.callback_query(
@@ -84,8 +79,44 @@ async def callback_install_protocol(
     state: FSMContext = None,
 ) -> None:
     protocol_name = callback.data.split(":")[1]
-    await state.set_state(MenuStates.ask_custom_port)
+    await state.set_state(MenuStates.ask_domain)
     await state.update_data(install_protocol=protocol_name)
+    await callback.message.edit_text(
+        t(lang, "ask_domain", protocol=protocol_name.upper()),
+        reply_markup=domain_selection_keyboard(protocol_name, lang),
+    )
+    await callback.answer()
+
+
+# --- Domain selection: show port selection ---
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("domain:")
+)
+async def callback_domain_selection(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    parts = callback.data.split(":")
+    protocol_name = parts[1] if len(parts) > 1 else ""
+    domain_value = parts[2] if len(parts) > 2 else ""
+
+    if domain_value == "custom":
+        await state.set_state(MenuStates.ask_domain)
+        await state.update_data(install_protocol=protocol_name)
+        await callback.message.edit_text(
+            t(lang, "ask_custom_domain"),
+        )
+        await callback.answer()
+        return
+
+    await state.set_state(MenuStates.ask_custom_port)
+    await state.update_data(
+        install_protocol=protocol_name,
+        install_domain=domain_value,
+    )
     await callback.message.edit_text(
         t(lang, "ask_port", protocol=protocol_name.upper()),
         reply_markup=port_selection_keyboard(protocol_name, lang),
@@ -150,6 +181,10 @@ async def _do_install(
         await callback.answer("Protocol not available")
         return
 
+    # Get domain from state data
+    data = await state.get_data() if state else {}
+    domain = data.get("install_domain", "")
+
     await state.set_state(MenuStates.idle)
     await callback.message.edit_text(
         f"Installing {protocol.value} on port {port}..."
@@ -157,6 +192,9 @@ async def _do_install(
     await callback.answer()
 
     try:
+        # Store domain in adapter for config generation
+        if domain:
+            setattr(adapter, "_sni_domain", domain)
         result = await adapter.install(
             port, getattr(adapter, "public_host", "")
         )

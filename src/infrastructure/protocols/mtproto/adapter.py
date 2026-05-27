@@ -40,6 +40,7 @@ class MtprotoAdapter(ProtocolAdapter):
         self.service_name = "mtproxy"
         self._secret: str = ""
         self._listen_port: int = 443
+        self._sni_domain: str = ""
 
     async def detect(self) -> ProtocolStatus:
         if not MTPROTO_BINARY.exists():

@@ -51,6 +51,7 @@ class VlessAdapter(ProtocolAdapter):
         self._private_key: str = ""
         self._public_key: str = ""
         self._short_id: str = ""
+        self._sni_domain: str = VLESS_REALITY_SNI
 
     async def detect(self) -> ProtocolStatus:
         if not Path(XRAY_BINARY).exists():
@@ -213,6 +214,7 @@ class VlessAdapter(ProtocolAdapter):
             raise RuntimeError("Failed to parse REALITY keys")
 
     def _create_reality_config(self, listen_port: int) -> None:
+        sni = self._sni_domain or VLESS_REALITY_SNI
         config = {
             "log": {"loglevel": "warning"},
             "inbounds": [
@@ -228,11 +230,11 @@ class VlessAdapter(ProtocolAdapter):
                         "security": "reality",
                         "realitySettings": {
                             "show": False,
-                            "dest": f"{VLESS_REALITY_SNI}:443",
+                            "dest": f"{sni}:443",
                             "xver": 0,
                             "serverNames": [
-                                VLESS_REALITY_SNI,
-                                f"www.{VLESS_REALITY_SNI}",
+                                sni,
+                                f"www.{sni}",
                             ],
                             "privateKey": self._private_key,
                             "shortIds": [self._short_id],

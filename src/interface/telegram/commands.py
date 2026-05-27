@@ -6,6 +6,7 @@ from typing import Optional
 from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
 
 from src.domain.enums import ProtocolType
@@ -18,6 +19,13 @@ from src.services.protocol_registry import ProtocolRegistry
 logger = logging.getLogger(__name__)
 
 router = Router()
+
+
+class MenuStates(StatesGroup):
+    idle = State()
+    ask_domain = State()
+    ask_custom_port = State()
+    ask_client_name = State()
 
 
 @router.message(Command("start"))
@@ -72,6 +80,11 @@ async def message_handler(
         await _handle_custom_port(message, lang, state, protocol_registry)
         return
 
+    # Handle custom domain input
+    if current_state == "MenuStates:ask_domain":
+        await _handle_custom_domain(message, lang, state, protocol_registry)
+        return
+
     # Handle client name input
     if current_state == "MenuStates:ask_client_name":
         await _handle_client_name(message, lang, state, protocol_registry)
@@ -106,6 +119,41 @@ async def message_handler(
         return
 
     await message.answer(t(lang, "unexpected_input"))
+
+
+async def _handle_custom_domain(
+    message: Message,
+    lang: str | None,
+    state: Optional[FSMContext],
+    protocol_registry: Optional[ProtocolRegistry],
+) -> None:
+    text = (message.text or "").strip()
+
+    if text == t(lang, "btn_back"):
+        await state.set_state(None)
+        await message.answer(
+            t(lang, "install_screen_title"),
+            reply_markup=await _build_install_keyboard(lang, protocol_registry),
+        )
+        return
+
+    domain = text.strip()
+    if not domain:
+        await message.answer(t(lang, "ask_custom_domain"))
+        return
+
+    data = await state.get_data()
+    protocol_name = data.get("install_protocol", "vless")
+
+    await state.set_state(MenuStates.ask_custom_port)
+    await state.update_data(install_domain=domain)
+
+    from src.interface.telegram.keyboards import port_selection_keyboard
+
+    await message.answer(
+        t(lang, "ask_port", protocol=protocol_name.upper()),
+        reply_markup=port_selection_keyboard(protocol_name, lang),
+    )
 
 
 async def _handle_custom_port(

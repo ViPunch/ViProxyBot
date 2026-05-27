@@ -95,6 +95,48 @@ def port_selection_keyboard(
     )
 
 
+def domain_selection_keyboard(
+    protocol: str,
+    lang: str | None = None,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_sni_microsoft"),
+                    callback_data=f"domain:{protocol}:www.microsoft.com",
+                ),
+                InlineKeyboardButton(
+                    text=t(lang, "btn_sni_google"),
+                    callback_data=f"domain:{protocol}:www.google.com",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_sni_apple"),
+                    callback_data=f"domain:{protocol}:www.apple.com",
+                ),
+                InlineKeyboardButton(
+                    text=t(lang, "btn_sni_cloudflare"),
+                    callback_data=f"domain:{protocol}:cloudflare.com",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_custom_domain"),
+                    callback_data=f"domain:{protocol}:custom",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="menu:install",
+                ),
+            ],
+        ]
+    )
+
+
 def client_protocol_keyboard(
     lang: str | None = None,
 ) -> InlineKeyboardMarkup:

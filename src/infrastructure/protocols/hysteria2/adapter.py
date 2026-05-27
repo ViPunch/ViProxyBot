@@ -48,6 +48,7 @@ class Hysteria2Adapter(ProtocolAdapter):
         self.service_name = "hysteria"
         self._listen_port: int = 443
         self._auth_password: str = ""
+        self._sni_domain: str = ""
 
     async def detect(self) -> ProtocolStatus:
         if not Path(HYSTERIA_BINARY).exists():
