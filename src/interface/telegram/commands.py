@@ -24,6 +24,7 @@ from src.interface.telegram.keyboards import (
     back_keyboard,
     confirm_keyboard,
     main_menu_keyboard,
+    port_selection_keyboard,
 )
 from src.services.protocol_registry import ProtocolRegistry
 
@@ -115,21 +116,21 @@ async def idle_handler(
         await state.set_state(MenuStates.ask_port)
         await message.answer(
             t(lang, "ask_port"),
-            reply_markup=back_keyboard(lang),
+            reply_markup=port_selection_keyboard("vless", lang),
         )
 
     elif text == t(lang, "btn_install_hysteria2"):
         await state.set_state(MenuStates.ask_port_hysteria2)
         await message.answer(
             t(lang, "ask_port_hysteria2"),
-            reply_markup=back_keyboard(lang),
+            reply_markup=port_selection_keyboard("hysteria2", lang),
         )
 
     elif text == t(lang, "btn_install_mtproto"):
         await state.set_state(MenuStates.ask_port_mtproto)
         await message.answer(
             t(lang, "ask_port_mtproto"),
-            reply_markup=back_keyboard(lang),
+            reply_markup=port_selection_keyboard("mtproto", lang),
         )
 
     elif text == t(lang, "btn_clients"):

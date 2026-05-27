@@ -82,9 +82,9 @@ class Hysteria2Adapter(ProtocolAdapter):
         )
 
         await self._write_systemd_unit()
-        await run_command(["systemctl", "daemon-reload"])
-        await run_command(["systemctl", "enable", self.service_name])
-        await run_command(["systemctl", "restart", self.service_name])
+        await run_command(["sudo", "systemctl", "daemon-reload"])
+        await run_command(["sudo", "systemctl", "enable", self.service_name])
+        await run_command(["sudo", "systemctl", "restart", self.service_name])
 
         await self._open_port_udp(listen_port)
 
@@ -105,7 +105,9 @@ class Hysteria2Adapter(ProtocolAdapter):
 
     async def reload_service(self) -> bool:
         try:
-            result = await run_command(["systemctl", "restart", self.service_name])
+            result = await run_command(
+                ["sudo", "systemctl", "restart", self.service_name]
+            )
             return result.success
         except FileNotFoundError:
             return False
@@ -183,8 +185,7 @@ class Hysteria2Adapter(ProtocolAdapter):
         logger.info("Downloading Hysteria2")
         await run_command(
             [
-                "bash",
-                "-c",
+                "sudo", "bash", "-c",
                 f"curl -sL {HYSTERIA_INSTALL_URL} "
                 f"-o {HYSTERIA_BINARY} "
                 f"&& chmod +x {HYSTERIA_BINARY}",
@@ -205,12 +206,14 @@ class Hysteria2Adapter(ProtocolAdapter):
             "[Install]\n"
             "WantedBy=multi-user.target\n"
         )
-        Path(HYSTERIA_SERVICE).write_text(unit, encoding="utf-8")
+        tmp_path = "/tmp/vpnbot-hysteria.service"
+        Path(tmp_path).write_text(unit, encoding="utf-8")
+        await run_command(["sudo", "cp", tmp_path, HYSTERIA_SERVICE])
 
     async def _open_port_udp(self, port: int) -> None:
         ufw_check = await run_command(["which", "ufw"])
         if ufw_check.success:
-            await run_command(["ufw", "allow", f"{port}/udp"])
+            await run_command(["sudo", "ufw", "allow", f"{port}/udp"])
 
 
 def _extract_port(config: dict) -> int:

@@ -117,6 +117,15 @@ chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "${BACKUPS_DIR}"
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "${LOG_DIR}"
 
+echo "==> Configuring sudoers for ${SERVICE_USER}..."
+cat > "/etc/sudoers.d/${SERVICE_USER}" <<SUDOEOF
+${SERVICE_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl
+${SERVICE_USER} ALL=(ALL) NOPASSWD: /usr/sbin/ufw
+${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/bash
+${SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/cp
+SUDOEOF
+chmod 440 "/etc/sudoers.d/${SERVICE_USER}"
+
 RUN_SCRIPT="${APP_ROOT}/run.sh"
 cat > "${RUN_SCRIPT}" <<RUNEOF
 #!/usr/bin/env bash

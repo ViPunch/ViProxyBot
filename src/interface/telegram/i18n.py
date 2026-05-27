@@ -19,18 +19,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_back": "Назад",
         "btn_confirm_yes": "Да",
         "btn_confirm_no": "Нет",
-        "ask_port": (
-            "Введите порт для VLESS (рекомендуется 443) "
-            "или нажмите Назад:"
-        ),
-        "ask_port_hysteria2": (
-            "Введите порт для Hysteria2 (рекомендуется 443/UDP) "
-            "или нажмите Назад:"
-        ),
-        "ask_port_mtproto": (
-            "Введите порт для MTProto (рекомендуется 443) "
-            "или нажмите Назад:"
-        ),
+        "btn_custom_port": "Другой порт",
+        "ask_port": "Выберите порт для VLESS:",
+        "ask_port_hysteria2": "Выберите порт для Hysteria2:",
+        "ask_port_mtproto": "Выберите порт для MTProto:",
         "install_hysteria2_success": "Hysteria2 установлен на порту {port}.",
         "install_hysteria2_error": "Ошибка установки Hysteria2: {error}",
         "install_mtproto_success": "MTProto установлен на порту {port}.",
@@ -45,6 +37,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ask_confirm_delete": 'Подтвердите удаление клиента "{name}":',
         "install_success": "VLESS установлен на порту {port}.",
         "install_error": "Ошибка установки VLESS: {error}",
+        "ask_custom_port": "Введите номер порта (1-65535):",
         "client_created": "Клиент создан.\n\nСсылка:\n{link}",
         "client_create_error": "Ошибка создания клиента: {error}",
         "client_deleted": 'Клиент "{name}" удалён.',
@@ -78,18 +71,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_back": "Back",
         "btn_confirm_yes": "Yes",
         "btn_confirm_no": "No",
-        "ask_port": (
-            "Enter port for VLESS (recommended 443) "
-            "or press Back:"
-        ),
-        "ask_port_hysteria2": (
-            "Enter port for Hysteria2 (recommended 443/UDP) "
-            "or press Back:"
-        ),
-        "ask_port_mtproto": (
-            "Enter port for MTProto (recommended 443) "
-            "or press Back:"
-        ),
+        "btn_custom_port": "Custom port",
+        "ask_port": "Select port for VLESS:",
+        "ask_port_hysteria2": "Select port for Hysteria2:",
+        "ask_port_mtproto": "Select port for MTProto:",
         "install_hysteria2_success": "Hysteria2 installed on port {port}.",
         "install_hysteria2_error": "Hysteria2 installation error: {error}",
         "install_mtproto_success": "MTProto installed on port {port}.",
@@ -104,6 +89,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ask_confirm_delete": 'Confirm deletion of client "{name}":',
         "install_success": "VLESS installed on port {port}.",
         "install_error": "VLESS installation error: {error}",
+        "ask_custom_port": "Enter port number (1-65535):",
         "client_created": "Client created.\n\nLink:\n{link}",
         "client_create_error": "Client creation error: {error}",
         "client_deleted": 'Client "{name}" deleted.',

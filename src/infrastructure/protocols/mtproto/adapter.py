@@ -55,9 +55,9 @@ class MtprotoAdapter(ProtocolAdapter):
         config_path = self.config_dir / "mtproxy.secret"
         config_path.write_text(self._secret, encoding="utf-8")
 
-        await run_command(["systemctl", "daemon-reload"])
-        await run_command(["systemctl", "enable", self.service_name])
-        await run_command(["systemctl", "restart", self.service_name])
+        await run_command(["sudo", "systemctl", "daemon-reload"])
+        await run_command(["sudo", "systemctl", "enable", self.service_name])
+        await run_command(["sudo", "systemctl", "restart", self.service_name])
 
         await self._open_port(listen_port)
 
@@ -82,7 +82,9 @@ class MtprotoAdapter(ProtocolAdapter):
 
     async def reload_service(self) -> bool:
         try:
-            result = await run_command(["systemctl", "restart", self.service_name])
+            result = await run_command(
+                ["sudo", "systemctl", "restart", self.service_name]
+            )
             return result.success
         except FileNotFoundError:
             return False
@@ -123,4 +125,4 @@ class MtprotoAdapter(ProtocolAdapter):
     async def _open_port(self, port: int) -> None:
         ufw_check = await run_command(["which", "ufw"])
         if ufw_check.success:
-            await run_command(["ufw", "allow", str(port)])
+            await run_command(["sudo", "ufw", "allow", str(port)])

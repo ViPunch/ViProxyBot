@@ -68,9 +68,9 @@ class VlessAdapter(ProtocolAdapter):
         create_initial_config(self.config_path, listen_port)
 
         await self._write_systemd_unit()
-        await run_command(["systemctl", "daemon-reload"])
-        await run_command(["systemctl", "enable", self.service_name])
-        await run_command(["systemctl", "restart", self.service_name])
+        await run_command(["sudo", "systemctl", "daemon-reload"])
+        await run_command(["sudo", "systemctl", "enable", self.service_name])
+        await run_command(["sudo", "systemctl", "restart", self.service_name])
 
         await self._open_port(listen_port)
 
@@ -102,7 +102,9 @@ class VlessAdapter(ProtocolAdapter):
 
     async def reload_service(self) -> bool:
         try:
-            result = await run_command(["systemctl", "restart", self.service_name])
+            result = await run_command(
+                ["sudo", "systemctl", "restart", self.service_name]
+            )
             return result.success
         except FileNotFoundError:
             return False
@@ -150,8 +152,7 @@ class VlessAdapter(ProtocolAdapter):
         logger.info("Downloading Xray-core")
         await run_command(
             [
-                "bash",
-                "-c",
+                "sudo", "bash", "-c",
                 f"curl -sL {XRAY_INSTALL_URL} -o /tmp/xray.zip "
                 f"&& unzip -o /tmp/xray.zip xray -d /usr/local/bin/ "
                 f"&& chmod +x {XRAY_BINARY}",
@@ -171,9 +172,11 @@ class VlessAdapter(ProtocolAdapter):
             "[Install]\n"
             "WantedBy=multi-user.target\n"
         )
-        Path(XRAY_SERVICE).write_text(unit, encoding="utf-8")
+        tmp_path = "/tmp/vpnbot-xray.service"
+        Path(tmp_path).write_text(unit, encoding="utf-8")
+        await run_command(["sudo", "cp", tmp_path, XRAY_SERVICE])
 
     async def _open_port(self, port: int) -> None:
         ufw_check = await run_command(["which", "ufw"])
         if ufw_check.success:
-            await run_command(["ufw", "allow", str(port)])
+            await run_command(["sudo", "ufw", "allow", str(port)])

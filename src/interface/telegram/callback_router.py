@@ -241,3 +241,69 @@ async def callback_confirm(
         return
 
     await callback.answer("Confirmed")
+
+
+@router.callback_query(lambda c: c.data and c.data.startswith("port:"))
+async def callback_port_selection(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    protocol_registry: ProtocolRegistry = None,
+    state=None,
+) -> None:
+    parts = callback.data.split(":")
+    protocol_name = parts[1] if len(parts) > 1 else ""
+    port_value = parts[2] if len(parts) > 2 else ""
+
+    try:
+        protocol = ProtocolType(protocol_name)
+    except ValueError:
+        await callback.answer("Unknown protocol")
+        return
+
+    if port_value == "custom":
+        await callback.message.edit_text(
+            t(lang, "ask_custom_port"),
+        )
+        await callback.answer()
+        return
+
+    try:
+        port = int(port_value)
+    except ValueError:
+        await callback.answer("Invalid port")
+        return
+
+    adapter = (
+        protocol_registry.get(protocol)
+        if protocol_registry
+        else None
+    )
+    if adapter is None:
+        await callback.answer("Protocol not available")
+        return
+
+    await callback.message.edit_text(
+        f"Installing {protocol.value} on port {port}..."
+    )
+    await callback.answer()
+
+    try:
+        result = await adapter.install(
+            port, getattr(adapter, "public_host", "")
+        )
+        success_key = f"install_{protocol.value}_success"
+        success_text = t(lang, success_key, port=result.listen_port)
+        if success_text == success_key:
+            success_text = t(
+                lang, "install_success", port=result.listen_port
+            )
+        await callback.message.edit_text(success_text)
+    except Exception as exc:
+        logger.exception(f"{protocol.value} install failed")
+        error_key = f"install_{protocol.value}_error"
+        error_text = t(lang, error_key, error=str(exc))
+        if error_text == error_key:
+            error_text = t(
+                lang, "install_error", error=str(exc)
+            )
+        await callback.message.edit_text(error_text)
