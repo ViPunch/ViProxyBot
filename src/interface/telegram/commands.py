@@ -237,23 +237,39 @@ async def port_input_hysteria2_handler(
 
     if text == t(lang, "btn_back"):
         await state.set_state(MenuStates.idle)
-        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        await message.answer(
+            t(lang, "main_menu"),
+            reply_markup=main_menu_keyboard(lang),
+        )
         return
 
     try:
         port = int(text)
     except ValueError:
-        await message.answer(t(lang, "ask_port_hysteria2"), reply_markup=back_keyboard(lang))
+        await message.answer(
+            t(lang, "ask_port_hysteria2"),
+            reply_markup=back_keyboard(lang),
+        )
         return
 
     if port < 1 or port > 65535:
-        await message.answer(t(lang, "ask_port_hysteria2"), reply_markup=back_keyboard(lang))
+        await message.answer(
+            t(lang, "ask_port_hysteria2"),
+            reply_markup=back_keyboard(lang),
+        )
         return
 
-    adapter = protocol_registry.get(ProtocolType.HYSTERIA2) if protocol_registry else None
+    adapter = (
+        protocol_registry.get(ProtocolType.HYSTERIA2)
+        if protocol_registry
+        else None
+    )
     if adapter is None:
         await state.set_state(MenuStates.idle)
-        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        await message.answer(
+            t(lang, "main_menu"),
+            reply_markup=main_menu_keyboard(lang),
+        )
         return
 
     try:
@@ -286,23 +302,39 @@ async def port_input_mtproto_handler(
 
     if text == t(lang, "btn_back"):
         await state.set_state(MenuStates.idle)
-        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        await message.answer(
+            t(lang, "main_menu"),
+            reply_markup=main_menu_keyboard(lang),
+        )
         return
 
     try:
         port = int(text)
     except ValueError:
-        await message.answer(t(lang, "ask_port_mtproto"), reply_markup=back_keyboard(lang))
+        await message.answer(
+            t(lang, "ask_port_mtproto"),
+            reply_markup=back_keyboard(lang),
+        )
         return
 
     if port < 1 or port > 65535:
-        await message.answer(t(lang, "ask_port_mtproto"), reply_markup=back_keyboard(lang))
+        await message.answer(
+            t(lang, "ask_port_mtproto"),
+            reply_markup=back_keyboard(lang),
+        )
         return
 
-    adapter = protocol_registry.get(ProtocolType.MTPROTO) if protocol_registry else None
+    adapter = (
+        protocol_registry.get(ProtocolType.MTPROTO)
+        if protocol_registry
+        else None
+    )
     if adapter is None:
         await state.set_state(MenuStates.idle)
-        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        await message.answer(
+            t(lang, "main_menu"),
+            reply_markup=main_menu_keyboard(lang),
+        )
         return
 
     try:
