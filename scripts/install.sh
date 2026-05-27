@@ -84,8 +84,19 @@ if [[ ! -f "${ENV_FILE}" ]]; then
     echo "  Введите числовой ID (или несколько через запятую, без пробелов)."
   done
 
+  DETECTED_IP=""
+  DETECTED_IP="$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null \
+    || curl -sf --max-time 5 https://ifconfig.me 2>/dev/null \
+    || curl -sf --max-time 5 https://icanhazip.com 2>/dev/null \
+    || true)"
+
   while true; do
-    read -rp "Публичный IP этого сервера: " VPS_IP_INPUT </dev/tty
+    if [[ -n "${DETECTED_IP}" ]]; then
+      read -rp "Публичный IP этого сервера [${DETECTED_IP}]: " VPS_IP_INPUT </dev/tty
+      VPS_IP_INPUT="${VPS_IP_INPUT:-${DETECTED_IP}}"
+    else
+      read -rp "Публичный IP этого сервера: " VPS_IP_INPUT </dev/tty
+    fi
     [[ -n "${VPS_IP_INPUT}" ]] && break
     echo "  IP не может быть пустым."
   done
