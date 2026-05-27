@@ -174,6 +174,9 @@ class VlessAdapter(ProtocolAdapter):
                     self.public_host,
                     get_listen_port_from_config(config),
                     remark=email,
+                    public_key=self._public_key,
+                    short_id=self._short_id,
+                    sni=self._sni_domain or VLESS_REALITY_SNI,
                 )
         raise ClientNotFoundError(email)
 

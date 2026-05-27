@@ -10,7 +10,27 @@ def generate_vless_link(
     *,
     remark: str = "VLESS",
     network: str = "tcp",
-    security: str = "tls",
+    security: str = "reality",
+    flow: str = "xtls-rprx-vision",
+    public_key: str = "",
+    short_id: str = "",
+    sni: str = "",
+    fingerprint: str = "chrome",
 ) -> str:
-    query = urlencode({"type": network, "security": security})
+    params: dict[str, str] = {
+        "type": network,
+        "security": security,
+    }
+
+    if security == "reality":
+        params["flow"] = flow
+        if public_key:
+            params["pbk"] = public_key
+        if short_id:
+            params["sid"] = short_id
+        if sni:
+            params["sni"] = sni
+        params["fp"] = fingerprint
+
+    query = urlencode(params)
     return f"vless://{uuid}@{host}:{port}?{query}#{quote(remark)}"

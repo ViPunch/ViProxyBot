@@ -75,6 +75,10 @@ class Hysteria2Adapter(ProtocolAdapter):
         self._auth_password = str(uuid.uuid4())
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Generate self-signed TLS certificates
+        domain = self._sni_domain or public_host
+        await self._generate_tls_certs(domain)
+
         create_server_config(
             self.config_path,
             listen_port,
@@ -213,6 +217,23 @@ class Hysteria2Adapter(ProtocolAdapter):
             raise RuntimeError(
                 f"Hysteria2 installation failed: {result.stderr}"
             )
+
+    async def _generate_tls_certs(self, domain: str) -> None:
+        logger.info("Generating self-signed TLS certificates")
+        cert_dir = Path("/etc/hysteria")
+        await run_command(["sudo", "mkdir", "-p", str(cert_dir)])
+        await run_command(
+            [
+                "sudo", "openssl", "req", "-x509", "-nodes",
+                "-newkey", "ec",
+                "-pkeyopt", "ec_paramgen_curve:prime256v1",
+                "-days", "3650",
+                "-keyout", "/etc/hysteria/key.pem",
+                "-out", "/etc/hysteria/cert.pem",
+                "-subj", f"/CN={domain}",
+            ],
+            timeout=30.0,
+        )
 
     async def _write_systemd_unit(self) -> None:
         unit = (
