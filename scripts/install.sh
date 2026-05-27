@@ -84,22 +84,16 @@ if [[ ! -f "${ENV_FILE}" ]]; then
     echo "  Введите числовой ID (или несколько через запятую, без пробелов)."
   done
 
-  DETECTED_IP=""
-  DETECTED_IP="$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null \
+  VPS_IP_INPUT="$(curl -sf --max-time 5 https://api.ipify.org 2>/dev/null \
     || curl -sf --max-time 5 https://ifconfig.me 2>/dev/null \
     || curl -sf --max-time 5 https://icanhazip.com 2>/dev/null \
     || true)"
+  VPS_IP_INPUT="${VPS_IP_INPUT//[^0-9.]/}"
 
-  while true; do
-    if [[ -n "${DETECTED_IP}" ]]; then
-      read -rp "Публичный IP этого сервера [${DETECTED_IP}]: " VPS_IP_INPUT </dev/tty
-      VPS_IP_INPUT="${VPS_IP_INPUT:-${DETECTED_IP}}"
-    else
-      read -rp "Публичный IP этого сервера: " VPS_IP_INPUT </dev/tty
-    fi
-    [[ -n "${VPS_IP_INPUT}" ]] && break
-    echo "  IP не может быть пустым."
-  done
+  if [[ -z "${VPS_IP_INPUT}" ]]; then
+    echo "  Не удалось определить IP. Введите вручную:"
+    read -rp "Публичный IP: " VPS_IP_INPUT </dev/tty
+  fi
 
   ENCRYPTION_KEY_INPUT="$(python3 -c \
     "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")"
