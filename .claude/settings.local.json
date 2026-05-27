@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile src/interface/telegram/commands.py)",
+      "Bash(python -m py_compile src/interface/telegram/i18n.py src/interface/telegram/keyboards.py scripts/install.sh)",
+      "Bash(bash -n scripts/install.sh)"
+    ]
+  }
+}

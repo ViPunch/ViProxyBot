@@ -68,8 +68,43 @@ python3 -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/pip" install -e "${APP_DIR}" -q
 
 if [[ ! -f "${ENV_FILE}" ]]; then
-  cp "${APP_DIR}/.env.example" "${ENV_FILE}"
+  echo
+  echo "==> Настройка бота (Configuration wizard)"
+  echo
+
+  while true; do
+    read -rp "Telegram Bot Token: " BOT_TOKEN_INPUT
+    [[ -n "${BOT_TOKEN_INPUT}" ]] && break
+    echo "  Токен не может быть пустым."
+  done
+
+  while true; do
+    read -rp "Ваш Telegram User ID (Admin ID): " ADMIN_IDS_INPUT
+    [[ "${ADMIN_IDS_INPUT}" =~ ^[0-9]+(,[0-9]+)*$ ]] && break
+    echo "  Введите числовой ID (или несколько через запятую, без пробелов)."
+  done
+
+  while true; do
+    read -rp "Публичный IP этого сервера: " VPS_IP_INPUT
+    [[ -n "${VPS_IP_INPUT}" ]] && break
+    echo "  IP не может быть пустым."
+  done
+
+  ENCRYPTION_KEY_INPUT="$(python3 -c \
+    "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")"
+
+  cat > "${ENV_FILE}" <<ENVEOF
+BOT_TOKEN=${BOT_TOKEN_INPUT}
+ADMIN_IDS=${ADMIN_IDS_INPUT}
+ENCRYPTION_KEY=${ENCRYPTION_KEY_INPUT}
+VPS_PUBLIC_IP=${VPS_IP_INPUT}
+ENVEOF
   chmod 600 "${ENV_FILE}"
+
+  echo
+  echo "  Сгенерированный ENCRYPTION_KEY (сохраните на случай восстановления):"
+  echo "  ${ENCRYPTION_KEY_INPUT}"
+  echo
 fi
 
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}"
@@ -124,16 +159,19 @@ EOF
   systemctl daemon-reload
   systemctl enable vpnbot.service
 
+  systemctl start vpnbot.service
   echo
-  echo "ViProxyBot installed with systemd."
-  echo "1. Edit:   sudo nano ${ENV_FILE}"
-  echo "2. Start:  sudo systemctl restart vpnbot"
-  echo "3. Logs:   sudo journalctl -u vpnbot -f"
+  echo "ViProxyBot установлен и запущен."
+  echo "Откройте бота в Telegram и отправьте /start"
+  echo
+  echo "Управление:"
+  echo "  Статус:  systemctl status vpnbot"
+  echo "  Логи:    journalctl -u vpnbot -f"
+  echo "  Стоп:    systemctl stop vpnbot"
 else
   echo
-  echo "ViProxyBot installed."
-  echo "1. Edit:   sudo nano ${ENV_FILE}"
-  echo "2. Start:  sudo ${RUN_SCRIPT}"
+  echo "ViProxyBot установлен."
+  echo "Запуск: sudo ${RUN_SCRIPT}"
   echo
-  echo "systemd not detected. Use run script above."
+  echo "systemd не обнаружен, используйте run script выше."
 fi

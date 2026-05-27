@@ -35,6 +35,8 @@ router = Router()
 class MenuStates(StatesGroup):
     idle = State()
     ask_port = State()
+    ask_port_hysteria2 = State()
+    ask_port_mtproto = State()
     ask_client_name = State()
     ask_delete_client_name = State()
     confirm_delete = State()
@@ -113,6 +115,20 @@ async def idle_handler(
         await state.set_state(MenuStates.ask_port)
         await message.answer(
             t(lang, "ask_port"),
+            reply_markup=back_keyboard(lang),
+        )
+
+    elif text == t(lang, "btn_install_hysteria2"):
+        await state.set_state(MenuStates.ask_port_hysteria2)
+        await message.answer(
+            t(lang, "ask_port_hysteria2"),
+            reply_markup=back_keyboard(lang),
+        )
+
+    elif text == t(lang, "btn_install_mtproto"):
+        await state.set_state(MenuStates.ask_port_mtproto)
+        await message.answer(
+            t(lang, "ask_port_mtproto"),
             reply_markup=back_keyboard(lang),
         )
 
@@ -203,6 +219,104 @@ async def port_input_handler(
         await state.set_state(MenuStates.idle)
         await message.answer(
             t(lang, "install_error", error=str(exc)),
+            reply_markup=main_menu_keyboard(lang),
+        )
+
+
+# --- Install Hysteria2: port input ---
+
+
+@router.message(MenuStates.ask_port_hysteria2)
+async def port_input_hysteria2_handler(
+    message: Message,
+    lang: str | None = None,
+    state: Optional[FSMContext] = None,
+    protocol_registry: Optional[ProtocolRegistry] = None,
+) -> None:
+    text = (message.text or "").strip()
+
+    if text == t(lang, "btn_back"):
+        await state.set_state(MenuStates.idle)
+        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    try:
+        port = int(text)
+    except ValueError:
+        await message.answer(t(lang, "ask_port_hysteria2"), reply_markup=back_keyboard(lang))
+        return
+
+    if port < 1 or port > 65535:
+        await message.answer(t(lang, "ask_port_hysteria2"), reply_markup=back_keyboard(lang))
+        return
+
+    adapter = protocol_registry.get(ProtocolType.HYSTERIA2) if protocol_registry else None
+    if adapter is None:
+        await state.set_state(MenuStates.idle)
+        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    try:
+        result = await adapter.install(port, adapter.public_host)
+        await state.set_state(MenuStates.idle)
+        await message.answer(
+            t(lang, "install_hysteria2_success", port=result.listen_port),
+            reply_markup=main_menu_keyboard(lang),
+        )
+    except Exception as exc:
+        logger.exception("Hysteria2 install failed")
+        await state.set_state(MenuStates.idle)
+        await message.answer(
+            t(lang, "install_hysteria2_error", error=str(exc)),
+            reply_markup=main_menu_keyboard(lang),
+        )
+
+
+# --- Install MTProto: port input ---
+
+
+@router.message(MenuStates.ask_port_mtproto)
+async def port_input_mtproto_handler(
+    message: Message,
+    lang: str | None = None,
+    state: Optional[FSMContext] = None,
+    protocol_registry: Optional[ProtocolRegistry] = None,
+) -> None:
+    text = (message.text or "").strip()
+
+    if text == t(lang, "btn_back"):
+        await state.set_state(MenuStates.idle)
+        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    try:
+        port = int(text)
+    except ValueError:
+        await message.answer(t(lang, "ask_port_mtproto"), reply_markup=back_keyboard(lang))
+        return
+
+    if port < 1 or port > 65535:
+        await message.answer(t(lang, "ask_port_mtproto"), reply_markup=back_keyboard(lang))
+        return
+
+    adapter = protocol_registry.get(ProtocolType.MTPROTO) if protocol_registry else None
+    if adapter is None:
+        await state.set_state(MenuStates.idle)
+        await message.answer(t(lang, "main_menu"), reply_markup=main_menu_keyboard(lang))
+        return
+
+    try:
+        result = await adapter.install(port, adapter.public_host)
+        await state.set_state(MenuStates.idle)
+        await message.answer(
+            t(lang, "install_mtproto_success", port=result.listen_port),
+            reply_markup=main_menu_keyboard(lang),
+        )
+    except Exception as exc:
+        logger.exception("MTProto install failed")
+        await state.set_state(MenuStates.idle)
+        await message.answer(
+            t(lang, "install_mtproto_error", error=str(exc)),
             reply_markup=main_menu_keyboard(lang),
         )
 

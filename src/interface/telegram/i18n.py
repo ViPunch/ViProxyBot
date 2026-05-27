@@ -2,13 +2,15 @@ from __future__ import annotations
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "ru": {
-        "bot_ready": "VPNBot готов.",
+        "bot_ready": "ViProxyBot готов.",
         "main_menu": "Главное меню",
         "status_not_implemented": "Статус пока не реализован.",
         "help_text": "Доступные команды: /start, /menu, /status, /help",
         "access_denied": "Доступ запрещён",
         "btn_status": "Статус",
         "btn_install_vless": "Установить VLESS",
+        "btn_install_hysteria2": "Установить Hysteria2",
+        "btn_install_mtproto": "Установить MTProto",
         "btn_clients": "Клиенты",
         "btn_add_client": "Добавить клиента",
         "btn_delete_client": "Удалить клиента",
@@ -21,6 +23,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Введите порт для VLESS (рекомендуется 443) "
             "или нажмите Назад:"
         ),
+        "ask_port_hysteria2": (
+            "Введите порт для Hysteria2 (рекомендуется 443/UDP) "
+            "или нажмите Назад:"
+        ),
+        "ask_port_mtproto": (
+            "Введите порт для MTProto (рекомендуется 443) "
+            "или нажмите Назад:"
+        ),
+        "install_hysteria2_success": "Hysteria2 установлен на порту {port}.",
+        "install_hysteria2_error": "Ошибка установки Hysteria2: {error}",
+        "install_mtproto_success": "MTProto установлен на порту {port}.",
+        "install_mtproto_error": "Ошибка установки MTProto: {error}",
         "ask_client_name": "Введите имя клиента или нажмите Назад:",
         "ask_delete_client_name": (
             "Введите имя клиента для удаления или нажмите Назад:"
@@ -54,6 +68,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "access_denied": "Access denied",
         "btn_status": "Status",
         "btn_install_vless": "Install VLESS",
+        "btn_install_hysteria2": "Install Hysteria2",
+        "btn_install_mtproto": "Install MTProto",
         "btn_clients": "Clients",
         "btn_add_client": "Add Client",
         "btn_delete_client": "Delete Client",
@@ -66,6 +82,18 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Enter port for VLESS (recommended 443) "
             "or press Back:"
         ),
+        "ask_port_hysteria2": (
+            "Enter port for Hysteria2 (recommended 443/UDP) "
+            "or press Back:"
+        ),
+        "ask_port_mtproto": (
+            "Enter port for MTProto (recommended 443) "
+            "or press Back:"
+        ),
+        "install_hysteria2_success": "Hysteria2 installed on port {port}.",
+        "install_hysteria2_error": "Hysteria2 installation error: {error}",
+        "install_mtproto_success": "MTProto installed on port {port}.",
+        "install_mtproto_error": "MTProto installation error: {error}",
         "ask_client_name": "Enter client name or press Back:",
         "ask_delete_client_name": (
             "Enter client name to delete or press Back:"

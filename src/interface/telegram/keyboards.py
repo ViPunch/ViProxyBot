@@ -8,7 +8,11 @@ def main_menu_keyboard(lang: str | None = None) -> ReplyKeyboardMarkup:
         keyboard=[
             [
                 KeyboardButton(text=t(lang, "btn_status")),
+            ],
+            [
                 KeyboardButton(text=t(lang, "btn_install_vless")),
+                KeyboardButton(text=t(lang, "btn_install_hysteria2")),
+                KeyboardButton(text=t(lang, "btn_install_mtproto")),
             ],
             [
                 KeyboardButton(text=t(lang, "btn_clients")),
