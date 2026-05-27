@@ -208,7 +208,9 @@ async def port_input_handler(
         return
 
     try:
-        result = await adapter.install(port, adapter.public_host)
+        result = await adapter.install(
+            port, getattr(adapter, "public_host", "")
+        )
         await state.set_state(MenuStates.idle)
         await message.answer(
             t(lang, "install_success", port=result.listen_port),
@@ -273,7 +275,9 @@ async def port_input_hysteria2_handler(
         return
 
     try:
-        result = await adapter.install(port, adapter.public_host)
+        result = await adapter.install(
+            port, getattr(adapter, "public_host", "")
+        )
         await state.set_state(MenuStates.idle)
         await message.answer(
             t(lang, "install_hysteria2_success", port=result.listen_port),
@@ -338,7 +342,9 @@ async def port_input_mtproto_handler(
         return
 
     try:
-        result = await adapter.install(port, adapter.public_host)
+        result = await adapter.install(
+            port, getattr(adapter, "public_host", "")
+        )
         await state.set_state(MenuStates.idle)
         await message.answer(
             t(lang, "install_mtproto_success", port=result.listen_port),
