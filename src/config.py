@@ -38,7 +38,7 @@ class AppConfig(BaseModel):
         default=Path("/opt/vpnbot/data/hysteria2")
     )
     rate_limit_commands: int = Field(default=30)
-    rate_limit_heavy_ops: int = Field(default=5)
+    rate_limit_heavy_ops: int = Field(default=30)
     rate_limit_window: int = Field(default=60)
     alert_chat_ids: list[int] = Field(default_factory=list)
     auto_update_enabled: bool = Field(default=False)
