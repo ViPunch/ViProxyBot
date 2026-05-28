@@ -280,11 +280,27 @@ class VlessAdapter(ProtocolAdapter):
 
     async def _install_xray(self) -> None:
         logger.info("Installing Xray-core via official script")
-        # TODO: move curl-install to vpnbot-ctl with checksum verification
+        dl_result = await run_command(
+            [
+                "sudo", VPNBOT_CTL, "curl-dl", "download",
+                XRAY_INSTALL_URL, "/tmp/xray-install.sh",
+            ],
+            timeout=60.0,
+        )
+        if not dl_result.success:
+            raise RuntimeError(
+                f"Failed to download Xray installer: {dl_result.stderr}"
+            )
         result = await run_command(
             [
-                "sudo", "bash", "-c",
-                f"curl -L {XRAY_INSTALL_URL} | bash -s -- install",
+                "sudo", VPNBOT_CTL, "file", "chmod", "755", "/tmp/xray-install.sh",
+            ],
+            timeout=10.0,
+        )
+        result = await run_command(
+            [
+                "sudo", VPNBOT_CTL, "bash-run", "/tmp/xray-install.sh",
+                "install",
             ],
             timeout=180.0,
         )

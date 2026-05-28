@@ -301,10 +301,20 @@ class Hysteria2Adapter(ProtocolAdapter):
 
     async def _install_hysteria(self) -> None:
         logger.info("Installing Hysteria2 via official script")
+        dl_result = await run_command(
+            [
+                "sudo", VPNBOT_CTL, "curl-dl", "download",
+                HYSTERIA_INSTALL_SCRIPT, "/tmp/hysteria-install.sh",
+            ],
+            timeout=60.0,
+        )
+        if not dl_result.success:
+            raise RuntimeError(
+                f"Failed to download Hysteria2 installer: {dl_result.stderr}"
+            )
         result = await run_command(
             [
-                "sudo", "bash", "-c",
-                f"curl -fsSL {HYSTERIA_INSTALL_SCRIPT} | bash",
+                "sudo", VPNBOT_CTL, "bash-run", "/tmp/hysteria-install.sh",
             ],
             timeout=180.0,
         )

@@ -192,6 +192,13 @@ case "${GROUP}" in
     esac
     ;;
 
+  bash-run)
+    [[ $# -ge 1 ]] || die "bash-run: need script path"
+    SCRIPT="$1"
+    shift
+    exec bash "${SCRIPT}" "$@"
+    ;;
+
   *)
     die "unknown group '${GROUP}'"
     ;;
