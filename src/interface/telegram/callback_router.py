@@ -79,12 +79,22 @@ async def callback_install_protocol(
     state: FSMContext = None,
 ) -> None:
     protocol_name = callback.data.split(":")[1]
-    await state.set_state(MenuStates.ask_domain)
     await state.update_data(install_protocol=protocol_name)
-    await callback.message.edit_text(
-        t(lang, "ask_domain", protocol=protocol_name.upper()),
-        reply_markup=domain_selection_keyboard(protocol_name, lang),
-    )
+
+    # VLESS asks for SNI domain first
+    if protocol_name == "vless":
+        await state.set_state(MenuStates.ask_domain)
+        await callback.message.edit_text(
+            t(lang, "ask_domain", protocol=protocol_name.upper()),
+            reply_markup=domain_selection_keyboard(protocol_name, lang),
+        )
+    else:
+        # Hysteria2 and MTProto go directly to port selection
+        await state.set_state(MenuStates.ask_custom_port)
+        await callback.message.edit_text(
+            t(lang, "ask_port", protocol=protocol_name.upper()),
+            reply_markup=port_selection_keyboard(protocol_name, lang),
+        )
     await callback.answer()
 
 
@@ -112,23 +122,12 @@ async def callback_domain_selection(
         await callback.answer()
         return
 
+    # For VLESS: store SNI domain and go to port selection
     await state.set_state(MenuStates.ask_custom_port)
     await state.update_data(
         install_protocol=protocol_name,
-        install_domain=domain_value,
+        install_sni=domain_value,
     )
-
-    # For Hysteria2, show SSL selection first
-    if protocol_name == "hysteria2":
-        from src.interface.telegram.keyboards import ssl_selection_keyboard
-
-        await state.set_state(None)
-        await callback.message.edit_text(
-            t(lang, "ask_ssl_type"),
-            reply_markup=ssl_selection_keyboard(protocol_name, lang),
-        )
-        await callback.answer()
-        return
 
     await callback.message.edit_text(
         t(lang, "ask_port", protocol=protocol_name.upper()),
@@ -229,11 +228,9 @@ async def _do_install(
         await callback.answer("Protocol not available")
         return
 
-    # Get domain and SSL info from state data
+    # Get SNI domain from state data (VLESS uses install_sni)
     data = await state.get_data() if state else {}
-    domain = data.get("install_domain", "")
-    ssl_type = data.get("install_ssl_type", "")
-    ssl_domain = data.get("install_ssl_domain", "")
+    sni_domain = data.get("install_sni", "")
 
     await state.set_state(MenuStates.idle)
     await callback.message.edit_text(
@@ -242,57 +239,9 @@ async def _do_install(
     await callback.answer()
 
     try:
-        # Store domain in adapter for config generation
-        if domain:
-            setattr(adapter, "_sni_domain", domain)
-
-        # Handle SSL certificates for Hysteria2
-        if protocol_name == "hysteria2" and ssl_type:
-            from src.infrastructure import ssl_manager
-
-            cert_result = None
-            if ssl_type == "ip":
-                await callback.message.edit_text(
-                    t(lang, "ssl_ip_info")
-                    + "\n\nIssuing certificate..."
-                )
-                public_host = getattr(adapter, "public_host", "")
-                cert_result = await ssl_manager.issue_certificate(
-                    public_host, is_ip=True
-                )
-            elif ssl_type == "domain" and ssl_domain:
-                await callback.message.edit_text(
-                    t(lang, "ssl_domain_info")
-                    + "\n\nIssuing certificate..."
-                )
-                cert_result = await ssl_manager.issue_certificate(
-                    ssl_domain
-                )
-            elif ssl_type == "selfsigned":
-                sni = domain or getattr(adapter, "public_host", "")
-                cert_result = await ssl_manager.generate_self_signed_cert(
-                    sni
-                )
-
-            if cert_result and cert_result.success:
-                setattr(adapter, "_cert_path", cert_result.cert_path)
-                setattr(adapter, "_key_path", cert_result.key_path)
-            elif cert_result and not cert_result.success:
-                logger.warning(
-                    "SSL cert failed: %s, using self-signed",
-                    cert_result.error,
-                )
-                sni = domain or getattr(adapter, "public_host", "")
-                cert_result = await ssl_manager.generate_self_signed_cert(
-                    sni
-                )
-                if cert_result.success:
-                    setattr(
-                        adapter, "_cert_path", cert_result.cert_path
-                    )
-                    setattr(
-                        adapter, "_key_path", cert_result.key_path
-                    )
+        # Set SNI domain for VLESS REALITY config
+        if protocol_name == "vless" and sni_domain:
+            setattr(adapter, "_sni_domain", sni_domain)
 
         result = await adapter.install(
             port, getattr(adapter, "public_host", "")
