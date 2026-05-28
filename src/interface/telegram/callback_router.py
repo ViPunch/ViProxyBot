@@ -89,7 +89,7 @@ async def callback_install_protocol(
             reply_markup=domain_selection_keyboard(protocol_name, lang),
         )
     else:
-        # Hysteria2 and MTProto go directly to port selection
+        # Hysteria2 goes directly to port selection
         await state.set_state(MenuStates.ask_custom_port)
         await callback.message.edit_text(
             t(lang, "ask_port", protocol=protocol_name.upper()),

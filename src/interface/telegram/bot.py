@@ -15,7 +15,6 @@ from src.domain.audit import AuditLogger
 from src.domain.enums import ProtocolType
 from src.infrastructure.alerting import AlertDispatcher, TelegramAlertHandler
 from src.infrastructure.protocols.hysteria2.adapter import Hysteria2Adapter
-from src.infrastructure.protocols.mtproto.adapter import MtprotoAdapter
 from src.infrastructure.protocols.vless.adapter import VlessAdapter
 from src.infrastructure.rate_limiter import RateLimiter
 from src.interface.telegram.callback_router import (
@@ -58,13 +57,6 @@ async def create_bot(config: AppConfig) -> tuple[Bot, Dispatcher]:
         key_path=str(config.ssl_key_path) if config.ssl_mode == "custom" else "",
     )
     registry.register(ProtocolType.HYSTERIA2, hysteria2_adapter)
-
-    mtproto_adapter = MtprotoAdapter(
-        config_dir=config.xray_config_dir / "mtproto",
-        backups_dir=config.backups_dir,
-        public_host=config.effective_host,
-    )
-    registry.register(ProtocolType.MTPROTO, mtproto_adapter)
 
     traffic_repo = TrafficRepository(conn)
     traffic_collector = TrafficCollector(registry, traffic_repo)

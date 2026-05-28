@@ -31,7 +31,7 @@ def install_screen_keyboard(
     lang: str | None = None,
 ) -> InlineKeyboardMarkup:
     buttons: list[list[InlineKeyboardButton]] = []
-    for protocol in ("vless", "hysteria2", "mtproto"):
+    for protocol in ("vless", "hysteria2"):
         installed, port = statuses.get(protocol, (False, None))
         if installed:
             status_text = t(
@@ -184,10 +184,6 @@ def client_protocol_keyboard(
                 InlineKeyboardButton(
                     text="Hysteria2",
                     callback_data="clients:hysteria2",
-                ),
-                InlineKeyboardButton(
-                    text="MTProto",
-                    callback_data="clients:mtproto",
                 ),
             ],
             [

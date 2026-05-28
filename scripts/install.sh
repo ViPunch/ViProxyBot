@@ -180,20 +180,6 @@ if [[ ! -f "${ENV_FILE}" ]]; then
     fi
   fi
 
-  echo ""
-  echo "--- MTProto (optional, Telegram proxy) ---"
-  read -rp "Install MTProto? [y/N]: " INSTALL_MTPROTO </dev/tty
-  MTPROTO_PORT_INPUT=""
-  if [[ "${INSTALL_MTPROTO}" =~ ^[Yy] ]]; then
-    if [[ "${VLESS_PORT_INPUT}" == "443" ]]; then
-      MTPROTO_PORT_INPUT="8443"
-      echo "  MTProto will use TCP 8443 (VLESS uses TCP 443)."
-    else
-      read -rp "MTProto TCP port [8443]: " MTPROTO_PORT_INPUT </dev/tty
-      MTPROTO_PORT_INPUT="${MTPROTO_PORT_INPUT:-8443}"
-    fi
-  fi
-
   ENCRYPTION_KEY_INPUT="$(python3 -c \
     "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).rstrip(b'=').decode())")"
 
@@ -209,7 +195,6 @@ SSL_CERT_PATH=${SSL_CERT_PATH_INPUT}
 SSL_KEY_PATH=${SSL_KEY_PATH_INPUT}
 VLESS_PORT=${VLESS_PORT_INPUT}
 HYSTERIA_PORT=${HYSTERIA_PORT_INPUT}
-MTPROTO_PORT=${MTPROTO_PORT_INPUT}
 ENVEOF
   chmod 600 "${ENV_FILE}"
   chown "${SERVICE_USER}:${SERVICE_USER}" "${ENV_FILE}"

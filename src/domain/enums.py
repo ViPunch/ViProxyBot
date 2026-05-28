@@ -4,7 +4,6 @@ from enum import StrEnum
 class ProtocolType(StrEnum):
     VLESS = "vless"
     HYSTERIA2 = "hysteria2"
-    MTPROTO = "mtproto"
 
 
 class ProtocolStatus(StrEnum):

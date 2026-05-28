@@ -35,15 +35,6 @@ CAPABILITY_MATRIX: dict[ProtocolType, ProtocolCapabilities] = {
         supports_backup_restore=True,
         supports_port_change=True,
     ),
-    ProtocolType.MTPROTO: ProtocolCapabilities(
-        supports_individual_clients=False,
-        supports_client_link_generation=True,
-        supports_per_client_traffic=False,
-        supports_aggregate_traffic=True,
-        supports_hot_reload=False,
-        supports_backup_restore=True,
-        supports_port_change=True,
-    ),
 }
 
 

@@ -29,7 +29,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "install_screen_title": "📦 Установка протоколов",
         "install_vless": "VLESS",
         "install_hysteria2": "Hysteria2",
-        "install_mtproto": "MTProto",
+
         "btn_install_protocol": "Установить",
         "btn_delete_protocol": "Удалить",
         "protocol_installed": "✅ установлен (порт {port})",
@@ -129,7 +129,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "install_screen_title": "📦 Protocol Installation",
         "install_vless": "VLESS",
         "install_hysteria2": "Hysteria2",
-        "install_mtproto": "MTProto",
+
         "btn_install_protocol": "Install",
         "btn_delete_protocol": "Delete",
         "protocol_installed": "✅ installed (port {port})",

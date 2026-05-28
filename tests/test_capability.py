@@ -17,10 +17,3 @@ def test_hysteria2_capabilities() -> None:
     caps = get_capabilities(ProtocolType.HYSTERIA2)
     assert caps.supports_individual_clients is True
     assert caps.supports_per_client_traffic is True
-
-
-def test_mtproto_capabilities() -> None:
-    caps = get_capabilities(ProtocolType.MTPROTO)
-    assert caps.supports_individual_clients is False
-    assert caps.supports_per_client_traffic is False
-    assert caps.supports_aggregate_traffic is True
