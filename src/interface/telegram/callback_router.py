@@ -257,15 +257,15 @@ async def _do_install(
                     + "\n\nIssuing certificate..."
                 )
                 public_host = getattr(adapter, "public_host", "")
-                cert_result = await ssl_manager.issue_ip_certificate(
-                    public_host
+                cert_result = await ssl_manager.issue_certificate(
+                    public_host, is_ip=True
                 )
             elif ssl_type == "domain" and ssl_domain:
                 await callback.message.edit_text(
                     t(lang, "ssl_domain_info")
                     + "\n\nIssuing certificate..."
                 )
-                cert_result = await ssl_manager.issue_domain_certificate(
+                cert_result = await ssl_manager.issue_certificate(
                     ssl_domain
                 )
             elif ssl_type == "selfsigned":

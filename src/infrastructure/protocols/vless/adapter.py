@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.domain.enums import ProtocolStatus
@@ -34,6 +35,9 @@ XRAY_INSTALL_URL = (
     "https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
 )
 VLESS_REALITY_SNI = "www.microsoft.com"
+VPNBOT_CTL = "/usr/local/bin/vpnbot-ctl"
+
+REALITY_KEYS_FILE = "reality_keys.json"
 
 
 class VlessAdapter(ProtocolAdapter):
@@ -52,6 +56,36 @@ class VlessAdapter(ProtocolAdapter):
         self._public_key: str = ""
         self._short_id: str = ""
         self._sni_domain: str = VLESS_REALITY_SNI
+        self._load_reality_keys()
+
+    def _keys_path(self) -> Path:
+        return self.config_path.parent / REALITY_KEYS_FILE
+
+    def _load_reality_keys(self) -> None:
+        path = self._keys_path()
+        if not path.exists():
+            return
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self._private_key = data.get("private_key", "")
+            self._public_key = data.get("public_key", "")
+            self._short_id = data.get("short_id", "")
+            self._sni_domain = data.get("sni_domain", VLESS_REALITY_SNI)
+        except (json.JSONDecodeError, KeyError):
+            logger.warning("Failed to load REALITY keys from %s", path)
+
+    def _save_reality_keys(self) -> None:
+        path = self._keys_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "private_key": self._private_key,
+            "public_key": self._public_key,
+            "short_id": self._short_id,
+            "sni_domain": self._sni_domain,
+        }
+        path.write_text(
+            json.dumps(data, indent=2) + "\n", encoding="utf-8"
+        )
 
     async def detect(self) -> ProtocolStatus:
         if not Path(XRAY_BINARY).exists():
@@ -68,28 +102,30 @@ class VlessAdapter(ProtocolAdapter):
         except FileNotFoundError:
             return ProtocolStatus.NOT_INSTALLED
 
-    async def install(self, listen_port: int, public_host: str) -> InstallResult:
+    async def install(
+        self, listen_port: int, public_host: str
+    ) -> InstallResult:
         self.public_host = public_host
         self._listen_port = listen_port
 
         if not Path(XRAY_BINARY).exists():
             await self._install_xray()
 
-        await self._generate_reality_keys()
+        if not self._public_key:
+            await self._generate_reality_keys()
 
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
         self._create_reality_config(listen_port)
 
         await self._write_systemd_unit()
         await run_command(
-            ["sudo", "systemctl", "daemon-reload"]
+            ["sudo", VPNBOT_CTL, "service", "reload", "_"]
         )
         await run_command(
-            ["sudo", "systemctl", "enable", self.service_name]
+            ["sudo", VPNBOT_CTL, "service", "enable", self.service_name]
         )
-        await run_command(
-            ["sudo", "systemctl", "restart", self.service_name]
-        )
+        if not await self.reload_service():
+            raise ServiceReloadError("Failed to start xray after install")
 
         await self._open_port(listen_port)
 
@@ -100,33 +136,53 @@ class VlessAdapter(ProtocolAdapter):
             config_path=self.config_path,
         )
 
-    async def create_client(self, external_name: str) -> tuple[str, str]:
+    async def create_client(
+        self, external_name: str
+    ) -> tuple[str, str]:
+        if not self.config_path.exists():
+            raise ServiceReloadError("Xray config not found")
+
+        await self.backup_config()
+
         config = load_config(self.config_path)
         credential = str(uuid.uuid4())
         updated_config = add_client_to_config(
             config, credential, external_name
         )
         save_config(self.config_path, updated_config)
-        if not await self.reload_service():
-            raise ServiceReloadError("Failed to reload xray service")
+
+        if not await self._validate_and_restart():
+            raise ServiceReloadError(
+                "Xray restart failed after client creation"
+            )
+
         return credential, external_name
 
     async def delete_client(self, identifier: str) -> None:
+        if not self.config_path.exists():
+            raise ServiceReloadError("Xray config not found")
+
         config = load_config(self.config_path)
         clients = get_clients_from_config(config)
         if not any(
             client.get("email") == identifier for client in clients
         ):
             raise ClientNotFoundError(identifier)
+
+        await self.backup_config()
+
         updated_config = remove_client_from_config(config, identifier)
         save_config(self.config_path, updated_config)
-        if not await self.reload_service():
-            raise ServiceReloadError("Failed to reload xray service")
+
+        if not await self._validate_and_restart():
+            raise ServiceReloadError(
+                "Xray restart failed after client deletion"
+            )
 
     async def reload_service(self) -> bool:
         try:
             result = await run_command(
-                ["sudo", "systemctl", "restart", self.service_name]
+                ["sudo", VPNBOT_CTL, "service", "restart", self.service_name]
             )
             return result.success
         except FileNotFoundError:
@@ -158,7 +214,7 @@ class VlessAdapter(ProtocolAdapter):
         if not self.config_path.exists():
             return None
         self.backups_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         backup_path = (
             self.backups_dir / f"xray-config-{timestamp}.json"
         )
@@ -166,6 +222,10 @@ class VlessAdapter(ProtocolAdapter):
         return str(backup_path)
 
     def generate_link(self, email: str) -> str:
+        if not self._public_key:
+            raise ServiceReloadError(
+                "REALITY keys not loaded. Install VLESS first."
+            )
         config = load_config(self.config_path)
         for client in get_clients_from_config(config):
             if client.get("email") == email:
@@ -180,8 +240,47 @@ class VlessAdapter(ProtocolAdapter):
                 )
         raise ClientNotFoundError(email)
 
+    async def collect_traffic(self) -> dict[str, dict[str, int]]:
+        return {}
+
+    async def _validate_and_restart(self) -> bool:
+        validate_result = await run_command(
+            [XRAY_BINARY, "test", "-config", str(self.config_path)],
+            timeout=10.0,
+        )
+        if not validate_result.success:
+            logger.error(
+                "Xray config validation failed: %s",
+                validate_result.stderr,
+            )
+            await self._rollback_config()
+            return False
+
+        restart_ok = await self.reload_service()
+        if not restart_ok:
+            logger.error("Xray restart failed, rolling back")
+            await self._rollback_config()
+            return False
+
+        return True
+
+    async def _rollback_config(self) -> None:
+        if not self.backups_dir.exists():
+            return
+        backups = sorted(
+            self.backups_dir.glob("xray-config-*.json"),
+            reverse=True,
+        )
+        if not backups:
+            return
+        latest = backups[0]
+        logger.warning("Rolling back Xray config from %s", latest)
+        shutil.copy2(latest, self.config_path)
+        await self.reload_service()
+
     async def _install_xray(self) -> None:
         logger.info("Installing Xray-core via official script")
+        # TODO: move curl-install to vpnbot-ctl with checksum verification
         result = await run_command(
             [
                 "sudo", "bash", "-c",
@@ -190,18 +289,14 @@ class VlessAdapter(ProtocolAdapter):
             timeout=180.0,
         )
         if not result.success:
-            logger.error(
-                "Xray install failed: %s", result.stderr
-            )
+            logger.error("Xray install failed: %s", result.stderr)
             raise RuntimeError(
                 f"Xray installation failed: {result.stderr}"
             )
 
     async def _generate_reality_keys(self) -> None:
         logger.info("Generating REALITY keys")
-        result = await run_command(
-            [XRAY_BINARY, "x25519"]
-        )
+        result = await run_command([XRAY_BINARY, "x25519"])
         if not result.success:
             raise RuntimeError("Failed to generate REALITY keys")
 
@@ -215,6 +310,8 @@ class VlessAdapter(ProtocolAdapter):
 
         if not self._private_key or not self._public_key:
             raise RuntimeError("Failed to parse REALITY keys")
+
+        self._save_reality_keys()
 
     def _create_reality_config(self, listen_port: int) -> None:
         sni = self._sni_domain or VLESS_REALITY_SNI
@@ -235,10 +332,7 @@ class VlessAdapter(ProtocolAdapter):
                             "show": False,
                             "dest": f"{sni}:443",
                             "xver": 0,
-                            "serverNames": [
-                                sni,
-                                f"www.{sni}",
-                            ],
+                            "serverNames": [sni, f"www.{sni}"],
                             "privateKey": self._private_key,
                             "shortIds": [self._short_id],
                         },
@@ -271,12 +365,12 @@ class VlessAdapter(ProtocolAdapter):
         tmp_path = "/tmp/vpnbot-xray.service"
         Path(tmp_path).write_text(unit, encoding="utf-8")
         await run_command(
-            ["sudo", "cp", tmp_path, XRAY_SERVICE]
+            ["sudo", VPNBOT_CTL, "file", "cp", tmp_path, XRAY_SERVICE]
         )
 
     async def _open_port(self, port: int) -> None:
         ufw_check = await run_command(["which", "ufw"])
         if ufw_check.success:
             await run_command(
-                ["sudo", "ufw", "allow", str(port)]
+                ["sudo", VPNBOT_CTL, "firewall", "allow", str(port)]
             )

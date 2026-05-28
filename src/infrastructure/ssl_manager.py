@@ -25,20 +25,20 @@ async def install_acme() -> bool:
         return True
     logger.info("Installing acme.sh")
     result = await run_command(
-        [
-            "sudo", "bash", "-c",
-            "curl -fsSL https://get.acme.sh | sh",
-        ],
+        ["sudo", "/usr/local/bin/vpnbot-ctl", "acme", "install"],
         timeout=60.0,
     )
     return result.success
 
 
-async def issue_ip_certificate(
-    ip: str,
+async def issue_certificate(
+    host: str,
     port: int = 80,
+    *,
+    is_ip: bool = False,
 ) -> CertificateResult:
-    cert_dir = CERT_BASE_DIR / "ip"
+    sub = "ip" if is_ip else host
+    cert_dir = CERT_BASE_DIR / sub
     cert_path = cert_dir / "fullchain.pem"
     key_path = cert_dir / "privkey.pem"
 
@@ -57,18 +57,12 @@ async def issue_ip_certificate(
             error="Failed to install acme.sh",
         )
 
-    await run_command(["sudo", "mkdir", "-p", str(cert_dir)])
-
-    logger.info("Issuing IP certificate for %s", ip)
+    action = "issue-ip" if is_ip else "issue-domain"
+    logger.info("Issuing certificate for %s", host)
     issue_result = await run_command(
         [
-            "sudo", str(ACME_HOME / "acme.sh"),
-            "--issue",
-            "-d", ip,
-            "--standalone",
-            "--server", "letsencrypt",
-            "--httpport", str(port),
-            "--force",
+            "sudo", "/usr/local/bin/vpnbot-ctl",
+            "cert", action, host, str(port),
         ],
         timeout=120.0,
     )
@@ -83,11 +77,9 @@ async def issue_ip_certificate(
 
     install_result = await run_command(
         [
-            "sudo", str(ACME_HOME / "acme.sh"),
-            "--installcert",
-            "-d", ip,
-            "--key-file", str(key_path),
-            "--fullchain-file", str(cert_path),
+            "sudo", "/usr/local/bin/vpnbot-ctl",
+            "cert", "install-cert",
+            host, str(key_path), str(cert_path),
         ],
         timeout=30.0,
     )
@@ -100,84 +92,12 @@ async def issue_ip_certificate(
             error=f"Certificate install failed: {install_result.stderr}",
         )
 
-    await run_command(["sudo", "chmod", "600", str(key_path)])
-    await run_command(["sudo", "chmod", "644", str(cert_path)])
-
-    return CertificateResult(
-        success=True,
-        cert_path=str(cert_path),
-        key_path=str(key_path),
+    await run_command(
+        ["sudo", "/usr/local/bin/vpnbot-ctl", "file", "chmod", "600", str(key_path)]
     )
-
-
-async def issue_domain_certificate(
-    domain: str,
-    port: int = 80,
-) -> CertificateResult:
-    cert_dir = CERT_BASE_DIR / domain
-    cert_path = cert_dir / "fullchain.pem"
-    key_path = cert_dir / "privkey.pem"
-
-    if cert_path.exists() and key_path.exists():
-        return CertificateResult(
-            success=True,
-            cert_path=str(cert_path),
-            key_path=str(key_path),
-        )
-
-    if not await install_acme():
-        return CertificateResult(
-            success=False,
-            cert_path="",
-            key_path="",
-            error="Failed to install acme.sh",
-        )
-
-    await run_command(["sudo", "mkdir", "-p", str(cert_dir)])
-
-    logger.info("Issuing domain certificate for %s", domain)
-    issue_result = await run_command(
-        [
-            "sudo", str(ACME_HOME / "acme.sh"),
-            "--issue",
-            "-d", domain,
-            "--standalone",
-            "--server", "letsencrypt",
-            "--httpport", str(port),
-            "--force",
-        ],
-        timeout=120.0,
+    await run_command(
+        ["sudo", "/usr/local/bin/vpnbot-ctl", "file", "chmod", "644", str(cert_path)]
     )
-
-    if not issue_result.success:
-        return CertificateResult(
-            success=False,
-            cert_path="",
-            key_path="",
-            error=f"Certificate issuance failed: {issue_result.stderr}",
-        )
-
-    install_result = await run_command(
-        [
-            "sudo", str(ACME_HOME / "acme.sh"),
-            "--installcert",
-            "-d", domain,
-            "--key-file", str(key_path),
-            "--fullchain-file", str(cert_path),
-        ],
-        timeout=30.0,
-    )
-
-    if not install_result.success:
-        return CertificateResult(
-            success=False,
-            cert_path="",
-            key_path="",
-            error=f"Certificate install failed: {install_result.stderr}",
-        )
-
-    await run_command(["sudo", "chmod", "600", str(key_path)])
-    await run_command(["sudo", "chmod", "644", str(cert_path)])
 
     return CertificateResult(
         success=True,
@@ -193,17 +113,17 @@ async def generate_self_signed_cert(
     cert_path = cert_dir / "cert.pem"
     key_path = cert_dir / "key.pem"
 
-    await run_command(["sudo", "mkdir", "-p", str(cert_dir)])
+    if cert_path.exists() and key_path.exists():
+        return CertificateResult(
+            success=True,
+            cert_path=str(cert_path),
+            key_path=str(key_path),
+        )
 
     result = await run_command(
         [
-            "sudo", "openssl", "req", "-x509", "-nodes",
-            "-newkey", "ec",
-            "-pkeyopt", "ec_paramgen_curve:prime256v1",
-            "-days", "3650",
-            "-keyout", str(key_path),
-            "-out", str(cert_path),
-            "-subj", f"/CN={domain}",
+            "sudo", "/usr/local/bin/vpnbot-ctl",
+            "cert", "selfsigned", domain, str(cert_dir),
         ],
         timeout=30.0,
     )
@@ -216,11 +136,66 @@ async def generate_self_signed_cert(
             error=f"Self-signed cert generation failed: {result.stderr}",
         )
 
-    await run_command(["sudo", "chmod", "600", str(key_path)])
-    await run_command(["sudo", "chmod", "644", str(cert_path)])
+    await run_command(
+        ["sudo", "/usr/local/bin/vpnbot-ctl", "file", "chmod", "600", str(key_path)]
+    )
+    await run_command(
+        ["sudo", "/usr/local/bin/vpnbot-ctl", "file", "chmod", "644", str(cert_path)]
+    )
 
     return CertificateResult(
         success=True,
         cert_path=str(cert_path),
         key_path=str(key_path),
     )
+
+
+async def ensure_certificates(
+    ssl_mode: str,
+    public_host: str,
+    domain: str = "",
+    cert_path: str = "",
+    key_path: str = "",
+) -> CertificateResult:
+    if ssl_mode == "domain":
+        if not domain:
+            return CertificateResult(
+                success=False,
+                cert_path="",
+                key_path="",
+                error="Domain is required for ssl_mode=domain",
+            )
+        return await issue_certificate(domain)
+
+    if ssl_mode == "custom":
+        if not cert_path or not key_path:
+            return CertificateResult(
+                success=False,
+                cert_path="",
+                key_path="",
+                error="cert_path and key_path required for ssl_mode=custom",
+            )
+        cp = Path(cert_path)
+        kp = Path(key_path)
+        if not cp.exists() or not kp.exists():
+            return CertificateResult(
+                success=False,
+                cert_path=cert_path,
+                key_path=key_path,
+                error=f"Certificate files not found: {cp}, {kp}",
+            )
+        return CertificateResult(
+            success=True,
+            cert_path=cert_path,
+            key_path=key_path,
+        )
+
+    host = domain or public_host
+    if not host:
+        return CertificateResult(
+            success=False,
+            cert_path="",
+            key_path="",
+            error="No host available for self-signed cert",
+        )
+    return await generate_self_signed_cert(host)

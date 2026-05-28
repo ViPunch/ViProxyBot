@@ -7,6 +7,7 @@ from src.config import AppConfig
 from src.database.connection import get_connection, set_db_path
 from src.database.repositories import (
     AdminRepository,
+    AuditRepository,
     TrafficRepository,
 )
 from src.database.schema import apply_schema
@@ -45,21 +46,23 @@ async def create_bot(config: AppConfig) -> tuple[Bot, Dispatcher]:
     vless_adapter = VlessAdapter(
         config_path=config.xray_config_dir / "config.json",
         backups_dir=config.backups_dir,
-        public_host=config.vps_public_ip,
+        public_host=config.effective_host,
     )
     registry.register(ProtocolType.VLESS, vless_adapter)
 
     hysteria2_adapter = Hysteria2Adapter(
-        config_path=config.xray_config_dir / "hysteria.yaml",
+        config_path=config.hysteria_config_dir / "config.yaml",
         backups_dir=config.backups_dir,
-        public_host=config.vps_public_ip,
+        public_host=config.effective_host,
+        cert_path=str(config.ssl_cert_path) if config.ssl_mode == "custom" else "",
+        key_path=str(config.ssl_key_path) if config.ssl_mode == "custom" else "",
     )
     registry.register(ProtocolType.HYSTERIA2, hysteria2_adapter)
 
     mtproto_adapter = MtprotoAdapter(
         config_dir=config.xray_config_dir / "mtproto",
         backups_dir=config.backups_dir,
-        public_host=config.vps_public_ip,
+        public_host=config.effective_host,
     )
     registry.register(ProtocolType.MTPROTO, mtproto_adapter)
 
@@ -89,13 +92,15 @@ async def create_bot(config: AppConfig) -> tuple[Bot, Dispatcher]:
         window_seconds=config.rate_limit_window,
     )
 
-    audit_logger = AuditLogger()
+    audit_repository = AuditRepository(conn)
+    audit_logger = AuditLogger(repository=audit_repository)
 
     alert_dispatcher = AlertDispatcher()
 
     health_checker = HealthChecker(
         registry=registry,
         alert_dispatcher=alert_dispatcher,
+        db_connection=conn,
     )
 
     bot = Bot(token=config.bot_token)

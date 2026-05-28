@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# vpnbot-ctl — narrow root helper for ViProxyBot.
+# Installed to /usr/local/bin/vpnbot-ctl with sudoers rules limiting
+# the vpnbot service user to only these specific operations.
+#
+# Usage: sudo vpnbot-ctl <group> <action> [args...]
+
+PROG="$(basename "$0")"
+
+die() { echo "${PROG}: $*" >&2; exit 1; }
+
+usage() {
+  cat <<EOF
+Usage: ${PROG} <group> <action> [args...]
+
+Groups:
+  service   <reload|enable|restart|is-active> <unit>
+  firewall  <allow> <port[/proto]>
+  file      <mkdir|chmod|cp|rm>  <args...>
+  cert      <issue-domain|issue-ip|install-cert|selfsigned> <args...>
+  acme      <install>
+  pkg       <install> <packages...>
+  git       <clone> <url> <dest>
+  make      <build> <dir>
+  curl-dl   <download> <url> <dest>
+EOF
+  exit 1
+}
+
+[[ $# -ge 2 ]] || usage
+
+GROUP="$1"; shift
+ACTION="$1"; shift
+
+case "${GROUP}" in
+
+  service)
+    [[ $# -ge 1 ]] || die "service: missing unit name"
+    UNIT="$1"
+    case "${ACTION}" in
+      reload)    exec systemctl daemon-reload ;;
+      enable)    exec systemctl enable "${UNIT}" ;;
+      restart)   exec systemctl restart "${UNIT}" ;;
+      is-active) exec systemctl is-active "${UNIT}" ;;
+      *)         die "service: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  firewall)
+    [[ $# -ge 1 ]] || die "firewall: missing port"
+    PORT="$1"
+    case "${ACTION}" in
+      allow) exec ufw allow "${PORT}" ;;
+      *)     die "firewall: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  file)
+    case "${ACTION}" in
+      mkdir)
+        [[ $# -ge 1 ]] || die "file mkdir: missing path"
+        exec mkdir -p "$@"
+        ;;
+      chmod)
+        [[ $# -ge 2 ]] || die "file chmod: missing mode or path"
+        exec chmod "$@"
+        ;;
+      cp)
+        [[ $# -ge 2 ]] || die "file cp: missing source or dest"
+        exec cp "$@"
+        ;;
+      rm)
+        [[ $# -ge 1 ]] || die "file rm: missing path"
+        exec rm -rf "$@"
+        ;;
+      *) die "file: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  cert)
+    ACME="${HOME}/.acme.sh/acme.sh"
+    CERT_DIR="/etc/vpnbot/certs"
+    case "${ACTION}" in
+      issue-domain)
+        [[ $# -ge 1 ]] || die "cert issue-domain: missing domain"
+        DOMAIN="$1"
+        PORT="${2:-80}"
+        [[ -x "${ACME}" ]] || die "acme.sh not found at ${ACME}"
+        mkdir -p "${CERT_DIR}/${DOMAIN}"
+        exec "${ACME}" --issue \
+          -d "${DOMAIN}" \
+          --standalone \
+          --server letsencrypt \
+          --httpport "${PORT}" \
+          --force
+        ;;
+      issue-ip)
+        [[ $# -ge 1 ]] || die "cert issue-ip: missing IP"
+        IP="$1"
+        PORT="${2:-80}"
+        [[ -x "${ACME}" ]] || die "acme.sh not found at ${ACME}"
+        mkdir -p "${CERT_DIR}/ip"
+        exec "${ACME}" --issue \
+          -d "${IP}" \
+          --standalone \
+          --server letsencrypt \
+          --httpport "${PORT}" \
+          --force
+        ;;
+      install-cert)
+        [[ $# -ge 3 ]] || die "cert install-cert: need domain key-file fullchain-file"
+        DOMAIN="$1"
+        KEY_FILE="$2"
+        FULLCHAIN_FILE="$3"
+        [[ -x "${ACME}" ]] || die "acme.sh not found at ${ACME}"
+        exec "${ACME}" --installcert \
+          -d "${DOMAIN}" \
+          --key-file "${KEY_FILE}" \
+          --fullchain-file "${FULLCHAIN_FILE}"
+        ;;
+      selfsigned)
+        [[ $# -ge 2 ]] || die "cert selfsigned: need domain out-dir"
+        DOMAIN="$1"
+        OUT_DIR="$2"
+        mkdir -p "${OUT_DIR}"
+        exec openssl req -x509 -nodes \
+          -newkey ec \
+          -pkeyopt ec_paramgen_curve:prime256v1 \
+          -days 3650 \
+          -keyout "${OUT_DIR}/key.pem" \
+          -out "${OUT_DIR}/cert.pem" \
+          -subj "/CN=${DOMAIN}"
+        ;;
+      *) die "cert: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  acme)
+    case "${ACTION}" in
+      install)
+        curl -fsSL https://get.acme.sh | sh
+        ;;
+      *) die "acme: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  pkg)
+    [[ $# -ge 1 ]] || die "pkg: missing package names"
+    case "${ACTION}" in
+      install)
+        export DEBIAN_FRONTEND=noninteractive
+        exec apt-get install -y "$@"
+        ;;
+      *) die "pkg: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  git)
+    case "${ACTION}" in
+      clone)
+        [[ $# -ge 2 ]] || die "git clone: need url and dest"
+        URL="$1"
+        DEST="$2"
+        shift 2
+        exec git clone "$@" -- "${URL}" "${DEST}"
+        ;;
+      *) die "git: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  make)
+    case "${ACTION}" in
+      build)
+        [[ $# -ge 1 ]] || die "make build: need dir"
+        exec make -C "$@"
+        ;;
+      *) die "make: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  curl-dl)
+    case "${ACTION}" in
+      download)
+        [[ $# -ge 2 ]] || die "curl-dl: need url and dest"
+        URL="$1"
+        DEST="$2"
+        exec curl -fsSL "${URL}" -o "${DEST}"
+        ;;
+      *) die "curl-dl: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  *)
+    die "unknown group '${GROUP}'"
+    ;;
+esac

@@ -1,4 +1,18 @@
-SCHEMA_SQL = """
+from __future__ import annotations
+
+from typing import Sequence
+
+import aiosqlite
+
+SCHEMA_VERSION_SQL = """
+CREATE TABLE IF NOT EXISTS schema_version (
+    version INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    applied_at TEXT NOT NULL
+);
+"""
+
+BASELINE_SQL = """
 CREATE TABLE IF NOT EXISTS admins (
     telegram_user_id INTEGER PRIMARY KEY,
     is_active INTEGER NOT NULL DEFAULT 1,
@@ -66,7 +80,40 @@ CREATE INDEX IF NOT EXISTS idx_audit_events_actor_created_at
     ON audit_events(actor_telegram_user_id, created_at);
 """
 
+MIGRATIONS: Sequence[tuple[int, str, str]] = [
+    (1, "baseline", BASELINE_SQL),
+]
 
-async def apply_schema(conn) -> None:
-    await conn.executescript(SCHEMA_SQL)
+
+async def _get_current_version(conn: aiosqlite.Connection) -> int:
+    try:
+        cursor = await conn.execute(
+            "SELECT MAX(version) FROM schema_version"
+        )
+        row = await cursor.fetchone()
+        if row is None or row[0] is None:
+            return 0
+        return int(row[0])
+    except Exception:
+        return 0
+
+
+async def apply_schema(conn: aiosqlite.Connection) -> None:
+    await conn.executescript(SCHEMA_VERSION_SQL)
     await conn.commit()
+
+    current = await _get_current_version(conn)
+
+    for version, name, sql in MIGRATIONS:
+        if version <= current:
+            continue
+        await conn.executescript(sql)
+        await conn.execute(
+            "INSERT INTO schema_version (version, name, applied_at) "
+            "VALUES (?, ?, datetime('now'))",
+            (version, name),
+        )
+        await conn.commit()
+
+
+SCHEMA_SQL = BASELINE_SQL

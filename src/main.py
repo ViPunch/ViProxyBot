@@ -10,6 +10,20 @@ from dotenv import load_dotenv
 from src.config import AppConfig
 from src.interface.telegram.bot import run_bot
 
+_EXTRA_FIELDS = frozenset({
+    "event",
+    "actor_id",
+    "protocol",
+    "action",
+    "target_type",
+    "target_id",
+    "status",
+    "details",
+    "alert_level",
+    "alert_source",
+    "command",
+})
+
 
 class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -19,7 +33,7 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        for field in ("event", "actor_id", "protocol", "action"):
+        for field in _EXTRA_FIELDS:
             value = getattr(record, field, None)
             if value is not None:
                 log_entry[field] = value
@@ -31,10 +45,14 @@ class JSONFormatter(logging.Formatter):
 def main() -> None:
     load_dotenv()
 
+    import os
+
+    log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+
     handler = logging.StreamHandler()
     handler.setFormatter(JSONFormatter())
     logging.root.handlers = [handler]
-    logging.root.setLevel(logging.INFO)
+    logging.root.setLevel(getattr(logging, log_level, logging.INFO))
 
     config = AppConfig.from_env()
     asyncio.run(run_bot(config))

@@ -253,17 +253,6 @@ class TrafficRepository:
             for row in rows
         ]
 
-        row = await cursor.fetchone()
-        if row is None:
-            return None
-        return ClientAccount(
-            id=row["id"],
-            protocol=ProtocolType(row["protocol"]),
-            external_name=row["external_name"],
-            status=ClientStatus(row["status"]),
-            created_at=datetime.fromisoformat(row["created_at"]),
-        )
-
     async def get_credential(self, client_id: int) -> ClientCredential | None:
         cursor = await self.conn.execute(
             "SELECT id, client_id, protocol, uuid, created_at "
