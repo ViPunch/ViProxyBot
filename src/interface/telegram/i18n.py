@@ -83,6 +83,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ask_client_name": "Введите имя клиента:",
         "client_created": "✅ Клиент \"{name}\" создан!\n\n🔗 Ссылка:\n{link}",
         "client_create_error": "❌ Ошибка: {error}",
+        "protocol_not_installed_warning": (
+            "⚠️ {protocol} не установлен. "
+            "Сначала установите протокол через 📦 Установка."
+        ),
         "select_client_link": "Выберите клиента для получения ссылки:",
         "select_client_delete": "Выберите клиента для удаления:",
         "client_link": "🔗 Ссылка для {name}:\n{link}",
@@ -182,6 +186,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ask_client_name": "Enter client name:",
         "client_created": "✅ Client \"{name}\" created!\n\n🔗 Link:\n{link}",
         "client_create_error": "❌ Error: {error}",
+        "protocol_not_installed_warning": (
+            "⚠️ {protocol} is not installed. "
+            "Install it first via 📦 Install."
+        ),
         "select_client_link": "Select client for link:",
         "select_client_delete": "Select client to delete:",
         "client_link": "🔗 Link for {name}:\n{link}",

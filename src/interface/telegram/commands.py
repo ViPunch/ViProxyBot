@@ -301,6 +301,20 @@ async def _handle_client_name(
         return
 
     await state.set_state(None)
+
+    # Check if protocol is installed before creating client
+    detect = getattr(adapter, "detect", None)
+    if detect:
+        status = await detect()
+        from src.domain.enums import ProtocolStatus
+
+        if status == ProtocolStatus.NOT_INSTALLED:
+            await message.answer(
+                t(lang, "protocol_not_installed_warning",
+                  protocol=protocol_name.upper()),
+            )
+            return
+
     try:
         credential, label = await adapter.create_client(text)
         generate_link = getattr(adapter, "generate_link", None)
