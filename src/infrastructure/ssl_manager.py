@@ -167,6 +167,16 @@ async def ensure_certificates(
             )
         return await issue_certificate(domain)
 
+    if ssl_mode == "ip":
+        if not public_host:
+            return CertificateResult(
+                success=False,
+                cert_path="",
+                key_path="",
+                error="IP is required for ssl_mode=ip",
+            )
+        return await issue_certificate(public_host, is_ip=True)
+
     if ssl_mode == "custom":
         if not cert_path or not key_path:
             return CertificateResult(

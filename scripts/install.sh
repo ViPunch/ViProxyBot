@@ -124,34 +124,36 @@ if [[ ! -f "${ENV_FILE}" ]]; then
 
   echo ""
   echo "--- SSL Certificate ---"
-  echo "  1) Let's Encrypt via acme.sh (requires domain)"
-  echo "  2) Custom certificate (provide paths)"
-  echo "  3) Skip (self-signed or reverse proxy)"
+  echo "  1) Domain (Let's Encrypt via acme.sh, requires domain with A record)"
+  echo "  2) IP (Let's Encrypt for IP address, short-lived but real cert)"
+  echo "  3) Self-signed (10 years, browser warning, works everywhere)"
   echo ""
   while true; do
     read -rp "SSL mode [1/2/3]: " SSL_CHOICE </dev/tty
     case "${SSL_CHOICE}" in
       1)
         if [[ -z "${DOMAIN_INPUT}" ]]; then
-          echo "  Domain is required for Let's Encrypt. Choose another option."
+          echo "  Domain is required. Enter domain first."
           continue
         fi
         SSL_MODE_INPUT="domain"
         SSL_CERT_PATH_INPUT=""
         SSL_KEY_PATH_INPUT=""
+        echo "  Will issue Let's Encrypt cert for ${DOMAIN_INPUT}"
         break
         ;;
       2)
-        SSL_MODE_INPUT="custom"
-        read -rp "Certificate path (fullchain.pem): " SSL_CERT_PATH_INPUT </dev/tty
-        read -rp "Private key path (privkey.pem): " SSL_KEY_PATH_INPUT </dev/tty
+        SSL_MODE_INPUT="ip"
+        SSL_CERT_PATH_INPUT=""
+        SSL_KEY_PATH_INPUT=""
+        echo "  Will issue Let's Encrypt cert for IP ${VPS_IP_INPUT}"
         break
         ;;
       3)
-        SSL_MODE_INPUT="skip"
+        SSL_MODE_INPUT="selfsigned"
         SSL_CERT_PATH_INPUT=""
         SSL_KEY_PATH_INPUT=""
-        echo "  WARNING: Connections won't be TLS-encrypted unless behind a reverse proxy."
+        echo "  Will generate self-signed cert (10 years)"
         break
         ;;
       *) echo "  Enter 1, 2, or 3." ;;
@@ -225,22 +227,39 @@ sys.path.insert(0, '${APP_DIR}')
 from src.infrastructure.ssl_manager import issue_certificate
 r = asyncio.run(issue_certificate('${DOMAIN_INPUT}'))
 if r.success:
-    print(f'  Certificate issued: {r.cert_path}')
+    print(f'  Certificate: {r.cert_path}')
+    print(f'  Key: {r.key_path}')
 else:
-    print(f'  Certificate issuance failed: {r.error}')
+    print(f'  FAILED: {r.error}')
     sys.exit(1)
 "
-  elif [[ "${SSL_MODE_INPUT}" == "skip" ]]; then
-    echo "==> Generating self-signed certificate for ${PUBLIC_HOST_INPUT}..."
+  elif [[ "${SSL_MODE_INPUT}" == "ip" ]]; then
+    echo "==> Issuing Let's Encrypt certificate for IP ${VPS_IP_INPUT}..."
+    "${VENV_DIR}/bin/python" -c "
+import asyncio, sys
+sys.path.insert(0, '${APP_DIR}')
+from src.infrastructure.ssl_manager import issue_certificate
+r = asyncio.run(issue_certificate('${VPS_IP_INPUT}', is_ip=True))
+if r.success:
+    print(f'  Certificate: {r.cert_path}')
+    print(f'  Key: {r.key_path}')
+else:
+    print(f'  FAILED: {r.error}')
+    sys.exit(1)
+"
+  elif [[ "${SSL_MODE_INPUT}" == "selfsigned" ]]; then
+    echo "==> Generating self-signed certificate (10 years)..."
     "${VENV_DIR}/bin/python" -c "
 import asyncio, sys
 sys.path.insert(0, '${APP_DIR}')
 from src.infrastructure.ssl_manager import generate_self_signed_cert
 r = asyncio.run(generate_self_signed_cert('${PUBLIC_HOST_INPUT}'))
 if r.success:
-    print(f'  Self-signed cert: {r.cert_path}')
+    print(f'  Certificate: {r.cert_path}')
+    print(f'  Key: {r.key_path}')
 else:
-    print(f'  Warning: {r.error}')
+    print(f'  FAILED: {r.error}')
+    sys.exit(1)
 "
   fi
 fi
