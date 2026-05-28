@@ -79,6 +79,10 @@ async def callback_install_protocol(
     state: FSMContext = None,
 ) -> None:
     protocol_name = callback.data.split(":")[1]
+    logger.info(
+        "Install callback: protocol=%s, user=%s",
+        protocol_name, callback.from_user.id,
+    )
     await state.update_data(install_protocol=protocol_name)
 
     # VLESS asks for SNI domain first
@@ -241,10 +245,15 @@ async def _do_install(
     try:
         # Set SNI domain for VLESS REALITY config
         if protocol_name == "vless" and sni_domain:
+            logger.info("Setting VLESS SNI: %s", sni_domain)
             setattr(adapter, "_sni_domain", sni_domain)
 
-        result = await adapter.install(
-            port, getattr(adapter, "public_host", "")
+        host = getattr(adapter, "public_host", "")
+        logger.info("Calling adapter.install(%s, %s)", port, host)
+        result = await adapter.install(port, host)
+        logger.info(
+            "Install result: success=%s, port=%s",
+            result.success, result.listen_port,
         )
         # After successful install, show client list for this protocol
         from src.interface.telegram.keyboards import client_list_keyboard
