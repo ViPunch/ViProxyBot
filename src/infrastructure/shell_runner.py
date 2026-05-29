@@ -41,7 +41,10 @@ async def run_command(
 
     executable = shutil.which(cmd[0])
     if executable is None:
-        raise FileNotFoundError(f"Executable not found: {cmd[0]}")
+        if Path(cmd[0]).is_file():
+            executable = cmd[0]
+        else:
+            raise FileNotFoundError(f"Executable not found: {cmd[0]}")
 
     try:
         process = await asyncio.create_subprocess_exec(

@@ -362,22 +362,31 @@ class VlessAdapter(ProtocolAdapter):
 
     async def _generate_reality_keys(self) -> None:
         logger.info("Generating REALITY keys")
-        result = await run_command([XRAY_BINARY, "x25519"])
+
+        result = await run_command([XRAY_BINARY, "x25519"], timeout=10.0)
         if not result.success:
-            raise RuntimeError("Failed to generate REALITY keys")
+            raise RuntimeError(
+                f"Failed to generate REALITY keys: {result.stderr}"
+            )
+
+        logger.debug("x25519 output: %s", result.stdout)
 
         for line in result.stdout.splitlines():
-            if "Private key:" in line:
+            line_lower = line.lower()
+            if "private" in line_lower and "key" in line_lower:
                 self._private_key = line.split(":", 1)[1].strip()
-            elif "Public key:" in line:
+            elif "public" in line_lower and "key" in line_lower:
                 self._public_key = line.split(":", 1)[1].strip()
 
         self._short_id = uuid.uuid4().hex[:16]
 
         if not self._private_key or not self._public_key:
-            raise RuntimeError("Failed to parse REALITY keys")
+            raise RuntimeError(
+                f"Failed to parse REALITY keys from output: {result.stdout!r}"
+            )
 
         self._save_reality_keys()
+        logger.info("REALITY keys generated successfully")
 
     def _create_reality_config(self, listen_port: int) -> None:
         sni = self._sni_domain or VLESS_REALITY_SNI

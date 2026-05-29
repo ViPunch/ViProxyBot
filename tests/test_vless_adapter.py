@@ -406,3 +406,114 @@ class TestValidation:
         )
         with pytest.raises(ValueError, match="public_host is required"):
             asyncio.run(adapter.install(443, ""))
+
+
+class TestGenerateRealityKeys:
+    def test_parse_x25519_output(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from src.infrastructure.shell_runner import ShellResult
+
+        config_path = tmp_path / "config.json"
+
+        adapter = VlessAdapter(
+            config_path=config_path,
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+
+        mock_result = ShellResult(
+            returncode=0,
+            stdout="Private key: test-priv-key-123\nPublic key: test-pub-key-456",
+            stderr="",
+            success=True,
+        )
+
+        async def mock_run_command(*args, **kwargs):
+            return mock_result
+
+        monkeypatch.setattr(
+            "src.infrastructure.protocols.vless.adapter.run_command",
+            mock_run_command,
+        )
+
+        async def run_test():
+            await adapter._generate_reality_keys()
+
+        asyncio.run(run_test())
+        assert adapter._private_key == "test-priv-key-123"
+        assert adapter._public_key == "test-pub-key-456"
+        assert len(adapter._short_id) == 16
+
+    def test_parse_x25519_output_case_insensitive(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import asyncio
+        from src.infrastructure.shell_runner import ShellResult
+
+        config_path = tmp_path / "config.json"
+
+        adapter = VlessAdapter(
+            config_path=config_path,
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+
+        mock_result = ShellResult(
+            returncode=0,
+            stdout="private key: lower-case-key\npublic key: upper-case-key",
+            stderr="",
+            success=True,
+        )
+
+        async def mock_run_command(*args, **kwargs):
+            return mock_result
+
+        monkeypatch.setattr(
+            "src.infrastructure.protocols.vless.adapter.run_command",
+            mock_run_command,
+        )
+
+        async def run_test():
+            await adapter._generate_reality_keys()
+
+        asyncio.run(run_test())
+        assert adapter._private_key == "lower-case-key"
+        assert adapter._public_key == "upper-case-key"
+
+    def test_parse_x25519_output_raises_on_empty(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import asyncio
+        from src.infrastructure.shell_runner import ShellResult
+
+        config_path = tmp_path / "config.json"
+
+        adapter = VlessAdapter(
+            config_path=config_path,
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+
+        mock_result = ShellResult(
+            returncode=0,
+            stdout="some garbage output",
+            stderr="",
+            success=True,
+        )
+
+        async def mock_run_command(*args, **kwargs):
+            return mock_result
+
+        monkeypatch.setattr(
+            "src.infrastructure.protocols.vless.adapter.run_command",
+            mock_run_command,
+        )
+
+        async def run_test():
+            await adapter._generate_reality_keys()
+
+        with pytest.raises(RuntimeError, match="Failed to parse REALITY keys"):
+            asyncio.run(run_test())
