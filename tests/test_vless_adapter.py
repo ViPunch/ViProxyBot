@@ -275,7 +275,6 @@ class TestCreateClientAutoKeyGeneration:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         import asyncio
-        from unittest.mock import AsyncMock
 
         config_path = tmp_path / "config.json"
         backups_dir = tmp_path / "backups"
@@ -413,7 +412,7 @@ class TestGenerateRealityKeys:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         import asyncio
-        from unittest.mock import AsyncMock, patch
+
         from src.infrastructure.shell_runner import ShellResult
 
         config_path = tmp_path / "config.json"
@@ -426,7 +425,10 @@ class TestGenerateRealityKeys:
 
         mock_result = ShellResult(
             returncode=0,
-            stdout="PrivateKey: test-priv-key-123\nPassword (PublicKey): test-pub-key-456",
+            stdout=(
+                "PrivateKey: test-priv-key-123\n"
+                "Password (PublicKey): test-pub-key-456"
+            ),
             stderr="",
             success=True,
         )
@@ -451,6 +453,7 @@ class TestGenerateRealityKeys:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         import asyncio
+
         from src.infrastructure.shell_runner import ShellResult
 
         config_path = tmp_path / "config.json"
@@ -487,6 +490,7 @@ class TestGenerateRealityKeys:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         import asyncio
+
         from src.infrastructure.shell_runner import ShellResult
 
         config_path = tmp_path / "config.json"
