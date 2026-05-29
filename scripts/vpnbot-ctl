@@ -193,10 +193,8 @@ case "${GROUP}" in
     ;;
 
   bash-run)
-    [[ $# -ge 1 ]] || die "bash-run: need script path"
-    SCRIPT="$1"
-    shift
-    exec bash "${SCRIPT}" "$@"
+    [[ -n "${ACTION}" ]] || die "bash-run: need script path"
+    exec bash "${ACTION}" "$@"
     ;;
 
   *)
