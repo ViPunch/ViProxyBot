@@ -138,10 +138,9 @@ class VlessAdapter(ProtocolAdapter):
     ) -> tuple[str, str]:
         if not self.config_path.exists():
             if not self._private_key:
-                raise ServiceReloadError(
-                    "Xray config not found and REALITY keys missing. "
-                    "Reinstall VLESS first."
-                )
+                if not Path(XRAY_BINARY).exists():
+                    await self._install_xray()
+                await self._generate_reality_keys()
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
             self._create_reality_config(self._listen_port)
 

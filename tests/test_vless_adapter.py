@@ -261,3 +261,58 @@ class TestBackup:
         )
         result = asyncio.run(adapter.backup_config())
         assert result is None
+
+
+class TestCreateClientAutoKeyGeneration:
+    def test_creates_keys_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import asyncio
+        from unittest.mock import AsyncMock
+
+        config_path = tmp_path / "config.json"
+        backups_dir = tmp_path / "backups"
+
+        adapter = VlessAdapter(
+            config_path=config_path,
+            backups_dir=backups_dir,
+            public_host="1.2.3.4",
+        )
+        assert adapter._private_key == ""
+        assert not config_path.exists()
+
+        async def mock_install_xray(self_adapter: VlessAdapter) -> None:
+            pass
+
+        async def mock_generate_keys(self_adapter: VlessAdapter) -> None:
+            self_adapter._private_key = "auto-priv"
+            self_adapter._public_key = "auto-pub"
+            self_adapter._short_id = "auto-sid"
+            self_adapter._save_reality_keys()
+
+        async def mock_validate(self_adapter: VlessAdapter) -> bool:
+            return True
+
+        async def mock_backup(self_adapter: VlessAdapter) -> str | None:
+            return None
+
+        monkeypatch.setattr(
+            VlessAdapter, "_install_xray", mock_install_xray
+        )
+        monkeypatch.setattr(
+            VlessAdapter, "_generate_reality_keys", mock_generate_keys
+        )
+        monkeypatch.setattr(
+            VlessAdapter, "_validate_and_restart", mock_validate
+        )
+        monkeypatch.setattr(
+            VlessAdapter, "backup_config", mock_backup
+        )
+
+        credential, name = asyncio.run(
+            adapter.create_client("test-user")
+        )
+        assert name == "test-user"
+        assert len(credential) > 0
+        assert config_path.exists()
+        assert adapter._private_key == "auto-priv"
