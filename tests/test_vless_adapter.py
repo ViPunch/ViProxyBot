@@ -377,6 +377,7 @@ class TestValidation:
         self, tmp_path: Path
     ) -> None:
         import asyncio
+
         from src.infrastructure.protocols.vless.adapter import InboundConfig
 
         adapter = VlessAdapter(
@@ -392,6 +393,7 @@ class TestValidation:
         self, tmp_path: Path
     ) -> None:
         import asyncio
+
         from src.infrastructure.protocols.vless.adapter import InboundConfig
 
         adapter = VlessAdapter(
