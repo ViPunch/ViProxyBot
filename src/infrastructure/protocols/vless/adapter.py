@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -36,6 +37,20 @@ VLESS_REALITY_SNI = "www.microsoft.com"
 VPNBOT_CTL = "/usr/local/bin/vpnbot-ctl"
 
 REALITY_KEYS_FILE = "reality_keys.json"
+
+
+@dataclass
+class InboundConfig:
+    port: int = 443
+    sni: str = VLESS_REALITY_SNI
+    transport: str = "tcp"
+    security: str = "reality"
+    fingerprint: str = "chrome"
+    sniffing_protocols: list[str] = field(
+        default_factory=lambda: ["http", "tls"]
+    )
+    cert_path: str = ""
+    key_path: str = ""
 
 
 class VlessAdapter(ProtocolAdapter):
@@ -107,22 +122,24 @@ class VlessAdapter(ProtocolAdapter):
     async def install(
         self, listen_port: int, public_host: str
     ) -> InstallResult:
-        if not 1 <= listen_port <= 65535:
-            raise ValueError(f"Invalid port: {listen_port}")
+        await self.install_base(public_host)
+        inbound = InboundConfig(port=listen_port)
+        await self.create_inbound(inbound)
+        return InstallResult(
+            success=True,
+            service_name=self.service_name,
+            listen_port=listen_port,
+            config_path=self.config_path,
+        )
+
+    async def install_base(self, public_host: str) -> None:
         if not public_host:
             raise ValueError("public_host is required")
 
         self.public_host = public_host
-        self._listen_port = listen_port
 
         if not Path(XRAY_BINARY).exists():
             await self._install_xray()
-
-        if not self._public_key:
-            await self._generate_reality_keys()
-
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        self._create_reality_config(listen_port)
 
         await self._write_systemd_unit()
         await run_command(
@@ -131,16 +148,32 @@ class VlessAdapter(ProtocolAdapter):
         await run_command(
             ["sudo", VPNBOT_CTL, "service", "enable", self.service_name]
         )
-        if not await self.reload_service():
-            raise ServiceReloadError("Failed to start xray after install")
 
-        await self._open_port(listen_port)
+        logger.info("VLESS base installed successfully")
 
-        return InstallResult(
-            success=True,
-            service_name=self.service_name,
-            listen_port=listen_port,
-            config_path=self.config_path,
+    async def create_inbound(self, config: InboundConfig) -> None:
+        if not 1 <= config.port <= 65535:
+            raise ValueError(f"Invalid port: {config.port}")
+
+        self._listen_port = config.port
+        self._sni_domain = config.sni
+
+        if config.security == "reality":
+            if not self._private_key:
+                await self._generate_reality_keys()
+            self._create_reality_config(config)
+        else:
+            self._create_tls_config(config)
+
+        if not await self._validate_and_restart():
+            raise ServiceReloadError(
+                "Xray restart failed after inbound creation"
+            )
+
+        await self._open_port(config.port)
+        logger.info(
+            "VLESS inbound created: port=%d security=%s",
+            config.port, config.security,
         )
 
     async def create_client(
@@ -155,7 +188,8 @@ class VlessAdapter(ProtocolAdapter):
                     await self._install_xray()
                 await self._generate_reality_keys()
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
-            self._create_reality_config(self._listen_port)
+            default_config = InboundConfig()
+            self._create_reality_config(default_config)
 
         await self.backup_config()
 
@@ -397,42 +431,72 @@ class VlessAdapter(ProtocolAdapter):
         self._save_reality_keys()
         logger.info("REALITY keys generated successfully")
 
-    def _create_reality_config(self, listen_port: int) -> None:
-        sni = self._sni_domain or VLESS_REALITY_SNI
-        config = {
+    def _build_stream_settings(self, config: InboundConfig) -> dict:
+        if config.security == "reality":
+            sni = config.sni or VLESS_REALITY_SNI
+            return {
+                "network": config.transport,
+                "security": "reality",
+                "realitySettings": {
+                    "show": False,
+                    "dest": f"{sni}:443",
+                    "xver": 0,
+                    "serverNames": [sni, f"www.{sni}"],
+                    "privateKey": self._private_key,
+                    "shortIds": [self._short_id],
+                    "fingerprint": config.fingerprint,
+                },
+            }
+        else:
+            tls_settings: dict = {
+                "fingerprint": config.fingerprint,
+            }
+            if config.cert_path and config.key_path:
+                tls_settings["certificates"] = [
+                    {
+                        "certificateFile": config.cert_path,
+                        "keyFile": config.key_path,
+                    }
+                ]
+            return {
+                "network": config.transport,
+                "security": "tls",
+                "tlsSettings": tls_settings,
+            }
+
+    def _build_sniffing(self, config: InboundConfig) -> dict:
+        if not config.sniffing_protocols:
+            return {"enabled": False}
+        return {
+            "enabled": True,
+            "destOverride": config.sniffing_protocols,
+        }
+
+    def _create_reality_config(self, config: InboundConfig) -> None:
+        inbound = {
+            "port": config.port,
+            "protocol": "vless",
+            "settings": {
+                "users": [],
+                "decryption": "none",
+            },
+            "streamSettings": self._build_stream_settings(config),
+            "sniffing": self._build_sniffing(config),
+        }
+
+        xray_config = {
             "log": {"loglevel": "warning"},
-            "inbounds": [
-                {
-                    "port": listen_port,
-                    "protocol": "vless",
-                    "settings": {
-                        "users": [],
-                        "decryption": "none",
-                    },
-                    "streamSettings": {
-                        "network": "tcp",
-                        "security": "reality",
-                        "realitySettings": {
-                            "show": False,
-                            "dest": f"{sni}:443",
-                            "xver": 0,
-                            "serverNames": [sni, f"www.{sni}"],
-                            "privateKey": self._private_key,
-                            "shortIds": [self._short_id],
-                        },
-                    },
-                    "sniffing": {
-                        "enabled": True,
-                        "destOverride": ["http", "tls"],
-                    },
-                }
-            ],
+            "inbounds": [inbound],
             "outbounds": [
                 {"protocol": "freedom", "tag": "direct"},
                 {"protocol": "blackhole", "tag": "block"},
             ],
         }
-        save_config(self.config_path, config)
+        self.config_path.parent.mkdir(parents=True, exist_ok=True)
+        save_config(self.config_path, xray_config)
+
+    def _create_tls_config(self, config: InboundConfig) -> None:
+        self._create_reality_config(config)
 
     async def _write_systemd_unit(self) -> None:
         unit = (

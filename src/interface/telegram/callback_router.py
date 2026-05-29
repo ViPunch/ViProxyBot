@@ -15,10 +15,16 @@ from src.interface.telegram.keyboards import (
     client_protocol_keyboard,
     client_select_keyboard,
     confirm_keyboard,
-    domain_selection_keyboard,
     install_screen_keyboard,
     main_menu_keyboard,
     port_selection_keyboard,
+    vless_confirm_keyboard,
+    vless_fingerprint_keyboard,
+    vless_port_keyboard,
+    vless_security_keyboard,
+    vless_sni_keyboard,
+    vless_sniffing_keyboard,
+    vless_transport_keyboard,
 )
 from src.services.protocol_registry import ProtocolRegistry
 
@@ -85,15 +91,12 @@ async def callback_install_protocol(
     )
     await state.update_data(install_protocol=protocol_name)
 
-    # VLESS asks for SNI domain first
     if protocol_name == "vless":
-        await state.set_state(MenuStates.ask_domain)
         await callback.message.edit_text(
-            t(lang, "ask_domain", protocol=protocol_name.upper()),
-            reply_markup=domain_selection_keyboard(protocol_name, lang),
+            t(lang, "vless_step_port"),
+            reply_markup=vless_port_keyboard(lang),
         )
-    else:
-        # Hysteria2 goes directly to port selection
+    elif protocol_name == "hysteria2":
         await state.set_state(MenuStates.ask_custom_port)
         await callback.message.edit_text(
             t(lang, "ask_port", protocol=protocol_name.upper()),
@@ -621,6 +624,240 @@ async def callback_monitoring(
         reply_markup=kb,
     )
     await callback.answer()
+
+
+# --- VLESS setup flow ---
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("vless:port:")
+)
+async def callback_vless_port(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    value = callback.data.split(":")[2]
+
+    if value == "custom":
+        await state.set_state(MenuStates.ask_custom_port)
+        await state.update_data(vless_setup_step="port")
+        await callback.message.edit_text(t(lang, "ask_custom_port"))
+        await callback.answer()
+        return
+
+    try:
+        port = int(value)
+    except ValueError:
+        await callback.answer("Invalid port")
+        return
+
+    await state.update_data(vless_port=port)
+    await callback.message.edit_text(
+        t(lang, "vless_step_sni"),
+        reply_markup=vless_sni_keyboard(lang),
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("vless:sni:")
+)
+async def callback_vless_sni(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    value = callback.data.split(":")[2]
+
+    if value == "custom":
+        await state.set_state(MenuStates.ask_custom_sni)
+        await callback.message.edit_text(t(lang, "ask_custom_sni"))
+        await callback.answer()
+        return
+
+    await state.update_data(vless_sni=value)
+    await callback.message.edit_text(
+        t(lang, "vless_step_transport"),
+        reply_markup=vless_transport_keyboard(lang),
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("vless:transport:")
+)
+async def callback_vless_transport(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    transport = callback.data.split(":")[2]
+    await state.update_data(vless_transport=transport)
+    await callback.message.edit_text(
+        t(lang, "vless_step_security"),
+        reply_markup=vless_security_keyboard(lang),
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("vless:security:")
+)
+async def callback_vless_security(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    security = callback.data.split(":")[2]
+    await state.update_data(vless_security=security)
+    await callback.message.edit_text(
+        t(lang, "vless_step_fingerprint"),
+        reply_markup=vless_fingerprint_keyboard(lang),
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("vless:fingerprint:")
+)
+async def callback_vless_fingerprint(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    fingerprint = callback.data.split(":")[2]
+    await state.update_data(vless_fingerprint=fingerprint)
+    await state.update_data(vless_sniffing=[])
+    await callback.message.edit_text(
+        t(lang, "vless_step_sniffing"),
+        reply_markup=vless_sniffing_keyboard([], lang),
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("vless:sniffing:")
+)
+async def callback_vless_sniffing(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    state: FSMContext = None,
+) -> None:
+    value = callback.data.split(":")[2]
+
+    if value == "done":
+        data = await state.get_data()
+        sniffing = data.get("vless_sniffing", [])
+        port = data.get("vless_port", 443)
+        sni = data.get("vless_sni", VLESS_REALITY_SNI)
+        transport = data.get("vless_transport", "tcp")
+        security = data.get("vless_security", "reality")
+        fingerprint = data.get("vless_fingerprint", "chrome")
+
+        lines = [
+            t(lang, "vless_confirm_title"),
+            "",
+            t(lang, "vless_confirm_port", port=port),
+            t(lang, "vless_confirm_sni", sni=sni),
+            t(lang, "vless_confirm_transport", transport=transport),
+            t(lang, "vless_confirm_security", security=security),
+            t(lang, "vless_confirm_fingerprint", fingerprint=fingerprint),
+            t(lang, "vless_confirm_sniffing", sniffing=", ".join(sniffing) or "none"),
+        ]
+        await callback.message.edit_text(
+            "\n".join(lines),
+            reply_markup=vless_confirm_keyboard(lang),
+        )
+        await callback.answer()
+        return
+
+    data = await state.get_data()
+    selected: list[str] = data.get("vless_sniffing", [])
+    if value in selected:
+        selected.remove(value)
+    else:
+        selected.append(value)
+    await state.update_data(vless_sniffing=selected)
+    await callback.message.edit_text(
+        t(lang, "vless_step_sniffing"),
+        reply_markup=vless_sniffing_keyboard(selected, lang),
+    )
+    await callback.answer()
+
+
+@router.callback_query(
+    lambda c: c.data and c.data.startswith("vless:confirm:")
+)
+async def callback_vless_confirm(
+    callback: CallbackQuery,
+    lang: str | None = None,
+    protocol_registry: ProtocolRegistry = None,
+    state: FSMContext = None,
+) -> None:
+    decision = callback.data.split(":")[2]
+    if decision != "yes":
+        await callback.answer()
+        return
+
+    data = await state.get_data()
+    port = data.get("vless_port", 443)
+    sni = data.get("vless_sni", VLESS_REALITY_SNI)
+    transport = data.get("vless_transport", "tcp")
+    security = data.get("vless_security", "reality")
+    fingerprint = data.get("vless_fingerprint", "chrome")
+    sniffing_protocols = data.get("vless_sniffing", ["http", "tls"])
+
+    await state.set_state(MenuStates.idle)
+
+    adapter = (
+        protocol_registry.get(ProtocolType.VLESS)
+        if protocol_registry
+        else None
+    )
+    if adapter is None:
+        await callback.answer("Protocol not available")
+        return
+
+    from src.infrastructure.protocols.vless.adapter import InboundConfig
+
+    await callback.message.edit_text("Creating VLESS inbound...")
+    await callback.answer()
+
+    try:
+        host = getattr(adapter, "public_host", "")
+
+        inbound_config = InboundConfig(
+            port=port,
+            sni=sni,
+            transport=transport,
+            security=security,
+            fingerprint=fingerprint,
+            sniffing_protocols=sniffing_protocols,
+        )
+
+        config_path = getattr(adapter, "config_path", None)
+        if not config_path or not config_path.exists():
+            await adapter.install_base(host)  # type: ignore[attr-defined]
+
+        await adapter.create_inbound(inbound_config)  # type: ignore[attr-defined]
+
+        clients = _get_client_names(adapter)
+        await callback.message.edit_text(
+            t(lang, "vless_created", port=port),
+            reply_markup=client_list_keyboard("vless", clients, lang),
+        )
+    except Exception as exc:
+        logger.exception("VLESS inbound creation failed")
+        await callback.message.edit_text(
+            t(lang, "vless_created_error", error=str(exc)),
+            reply_markup=install_screen_keyboard(
+                await _get_statuses(protocol_registry), lang
+            ),
+        )
+
+
+VLESS_REALITY_SNI = "www.microsoft.com"
 
 
 # --- Noop handler for non-clickable buttons ---

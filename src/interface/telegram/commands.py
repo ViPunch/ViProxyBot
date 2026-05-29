@@ -27,6 +27,7 @@ class MenuStates(StatesGroup):
     ask_custom_port = State()
     ask_client_name = State()
     ask_ssl_domain = State()
+    ask_custom_sni = State()
 
 
 @router.message(Command("start"))
@@ -75,6 +76,11 @@ async def message_handler(
 ) -> None:
     text = (message.text or "").strip()
     current_state = await state.get_state() if state else None
+
+    # Handle custom SNI input
+    if current_state == "MenuStates:ask_custom_sni":
+        await _handle_custom_sni(message, lang, state)
+        return
 
     # Handle custom port input
     if current_state == "MenuStates:ask_custom_port":
@@ -194,6 +200,39 @@ async def _handle_ssl_domain(
     await message.answer(
         t(lang, "ask_port", protocol=protocol_name.upper()),
         reply_markup=port_selection_keyboard(protocol_name, lang),
+    )
+
+
+async def _handle_custom_sni(
+    message: Message,
+    lang: str | None,
+    state: Optional[FSMContext],
+) -> None:
+    text = (message.text or "").strip()
+
+    if text == t(lang, "btn_back"):
+        await state.set_state(None)
+        from src.interface.telegram.keyboards import vless_sni_keyboard
+
+        await message.answer(
+            t(lang, "vless_step_sni"),
+            reply_markup=vless_sni_keyboard(lang),
+        )
+        return
+
+    sni = text.strip()
+    if not sni:
+        await message.answer(t(lang, "ask_custom_sni"))
+        return
+
+    await state.set_state(None)
+    await state.update_data(vless_sni=sni)
+
+    from src.interface.telegram.keyboards import vless_transport_keyboard
+
+    await message.answer(
+        t(lang, "vless_step_transport"),
+        reply_markup=vless_transport_keyboard(lang),
     )
 
 

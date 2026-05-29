@@ -373,29 +373,37 @@ class TestValidation:
         with pytest.raises(ValueError, match="cannot be empty"):
             asyncio.run(adapter.delete_client(""))
 
-    def test_install_invalid_port_raises(self, tmp_path: Path) -> None:
+    def test_create_inbound_invalid_port_raises(
+        self, tmp_path: Path
+    ) -> None:
         import asyncio
+        from src.infrastructure.protocols.vless.adapter import InboundConfig
 
         adapter = VlessAdapter(
             config_path=tmp_path / "config.json",
             backups_dir=tmp_path / "backups",
             public_host="1.2.3.4",
         )
+        config = InboundConfig(port=0)
         with pytest.raises(ValueError, match="Invalid port"):
-            asyncio.run(adapter.install(0, "1.2.3.4"))
+            asyncio.run(adapter.create_inbound(config))
 
-    def test_install_port_too_high_raises(self, tmp_path: Path) -> None:
+    def test_create_inbound_port_too_high_raises(
+        self, tmp_path: Path
+    ) -> None:
         import asyncio
+        from src.infrastructure.protocols.vless.adapter import InboundConfig
 
         adapter = VlessAdapter(
             config_path=tmp_path / "config.json",
             backups_dir=tmp_path / "backups",
             public_host="1.2.3.4",
         )
+        config = InboundConfig(port=99999)
         with pytest.raises(ValueError, match="Invalid port"):
-            asyncio.run(adapter.install(99999, "1.2.3.4"))
+            asyncio.run(adapter.create_inbound(config))
 
-    def test_install_empty_host_raises(self, tmp_path: Path) -> None:
+    def test_install_base_empty_host_raises(self, tmp_path: Path) -> None:
         import asyncio
 
         adapter = VlessAdapter(
@@ -404,7 +412,7 @@ class TestValidation:
             public_host="1.2.3.4",
         )
         with pytest.raises(ValueError, match="public_host is required"):
-            asyncio.run(adapter.install(443, ""))
+            asyncio.run(adapter.install_base(""))
 
 
 class TestGenerateRealityKeys:

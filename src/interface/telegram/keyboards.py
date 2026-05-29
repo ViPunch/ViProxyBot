@@ -286,3 +286,212 @@ def back_inline_keyboard(
             ],
         ]
     )
+
+
+def vless_port_keyboard(lang: str | None = None) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="443",
+                    callback_data="vless:port:443",
+                ),
+                InlineKeyboardButton(
+                    text="8443",
+                    callback_data="vless:port:8443",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_custom_port"),
+                    callback_data="vless:port:custom",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="menu:install",
+                ),
+            ],
+        ]
+    )
+
+
+def vless_sni_keyboard(lang: str | None = None) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="www.microsoft.com",
+                    callback_data="vless:sni:www.microsoft.com",
+                ),
+                InlineKeyboardButton(
+                    text="www.google.com",
+                    callback_data="vless:sni:www.google.com",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="www.apple.com",
+                    callback_data="vless:sni:www.apple.com",
+                ),
+                InlineKeyboardButton(
+                    text="cloudflare.com",
+                    callback_data="vless:sni:cloudflare.com",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_custom_domain"),
+                    callback_data="vless:sni:custom",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="menu:install",
+                ),
+            ],
+        ]
+    )
+
+
+def vless_transport_keyboard(
+    lang: str | None = None,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="TCP (raw)",
+                    callback_data="vless:transport:tcp",
+                ),
+                InlineKeyboardButton(
+                    text="XHTTP",
+                    callback_data="vless:transport:xhttp",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="vless:setup:sni",
+                ),
+            ],
+        ]
+    )
+
+
+def vless_security_keyboard(
+    lang: str | None = None,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="REALITY",
+                    callback_data="vless:security:reality",
+                ),
+                InlineKeyboardButton(
+                    text="TLS",
+                    callback_data="vless:security:tls",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="vless:setup:transport",
+                ),
+            ],
+        ]
+    )
+
+
+def vless_fingerprint_keyboard(
+    lang: str | None = None,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Chrome",
+                    callback_data="vless:fingerprint:chrome",
+                ),
+                InlineKeyboardButton(
+                    text="Firefox",
+                    callback_data="vless:fingerprint:firefox",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Safari",
+                    callback_data="vless:fingerprint:safari",
+                ),
+                InlineKeyboardButton(
+                    text="Edge",
+                    callback_data="vless:fingerprint:edge",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="vless:setup:security",
+                ),
+            ],
+        ]
+    )
+
+
+def vless_sniffing_keyboard(
+    selected: list[str],
+    lang: str | None = None,
+) -> InlineKeyboardMarkup:
+    protocols = ["http", "tls", "quic", "fakedns"]
+    buttons: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for proto in protocols:
+        check = "✅ " if proto in selected else ""
+        row.append(
+            InlineKeyboardButton(
+                text=f"{check}{proto}",
+                callback_data=f"vless:sniffing:{proto}",
+            )
+        )
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([
+        InlineKeyboardButton(
+            text="✅ Готово",
+            callback_data="vless:sniffing:done",
+        ),
+    ])
+    buttons.append([
+        InlineKeyboardButton(
+            text=t(lang, "btn_back"),
+            callback_data="vless:setup:fingerprint",
+        ),
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def vless_confirm_keyboard(
+    lang: str | None = None,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Создать inbound",
+                    callback_data="vless:confirm:yes",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "btn_back"),
+                    callback_data="vless:setup:sniffing",
+                ),
+            ],
+        ]
+    )
