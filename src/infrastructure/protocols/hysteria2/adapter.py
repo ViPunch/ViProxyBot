@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 HYSTERIA_BINARY = "/usr/local/bin/hysteria"
 HYSTERIA_SERVICE = "/etc/systemd/system/hysteria.service"
 HYSTERIA_CONFIG_DIR = Path("/etc/hysteria")
-HYSTERIA_INSTALL_SCRIPT = "https://get.hy2.sh/"
 VPNBOT_CTL = "/usr/local/bin/vpnbot-ctl"
 
 
@@ -300,29 +299,36 @@ class Hysteria2Adapter(ProtocolAdapter):
         await self.reload_service()
 
     async def _install_hysteria(self) -> None:
-        logger.info("Installing Hysteria2 via official script")
+        logger.info("Installing Hysteria2 binary directly")
+
+        arch_result = await run_command(["uname", "-m"], timeout=5.0)
+        arch_map = {
+            "x86_64": "amd64",
+            "aarch64": "arm64",
+            "armv7l": "armv7",
+        }
+        arch = arch_map.get(arch_result.stdout.strip(), "amd64")
+
+        dl_url = (
+            "https://github.com/apernet/hysteria/releases/"
+            "latest/download/hysteria-linux-amd64"
+        ).replace("amd64", arch)
+
         dl_result = await run_command(
             [
                 "sudo", VPNBOT_CTL, "curl-dl", "download",
-                HYSTERIA_INSTALL_SCRIPT, "/tmp/hysteria-install.sh",
+                dl_url, HYSTERIA_BINARY,
             ],
-            timeout=60.0,
+            timeout=120.0,
         )
         if not dl_result.success:
             raise RuntimeError(
-                f"Failed to download Hysteria2 installer: {dl_result.stderr}"
+                f"Failed to download Hysteria2: {dl_result.stderr}"
             )
-        result = await run_command(
-            [
-                "sudo", VPNBOT_CTL, "bash-run", "/tmp/hysteria-install.sh",
-            ],
-            timeout=180.0,
+
+        await run_command(
+            ["sudo", VPNBOT_CTL, "file", "chmod", "755", HYSTERIA_BINARY]
         )
-        if not result.success:
-            logger.error("Hysteria2 install failed: %s", result.stderr)
-            raise RuntimeError(
-                f"Hysteria2 installation failed: {result.stderr}"
-            )
 
     async def _generate_tls_certs(self, domain: str) -> None:
         logger.info("Generating self-signed TLS certificates")

@@ -31,9 +31,6 @@ XRAY_BINARY = "/usr/local/bin/xray"
 XRAY_SERVICE = "/etc/systemd/system/xray.service"
 XRAY_CONFIG_DIR = Path("/usr/local/etc/xray")
 XRAY_CONFIG_PATH = XRAY_CONFIG_DIR / "config.json"
-XRAY_INSTALL_URL = (
-    "https://github.com/XTLS/Xray-install/raw/main/install-release.sh"
-)
 VLESS_REALITY_SNI = "www.microsoft.com"
 VPNBOT_CTL = "/usr/local/bin/vpnbot-ctl"
 
@@ -279,36 +276,64 @@ class VlessAdapter(ProtocolAdapter):
         await self.reload_service()
 
     async def _install_xray(self) -> None:
-        logger.info("Installing Xray-core via official script")
+        logger.info("Installing Xray-core binary directly")
+
+        arch_result = await run_command(["uname", "-m"], timeout=5.0)
+        arch_map = {
+            "x86_64": "64",
+            "aarch64": "arm64-v8a",
+            "armv7l": "arm32-v7a",
+        }
+        machine = arch_map.get(arch_result.stdout.strip(), "64")
+
+        await run_command(
+            ["sudo", VPNBOT_CTL, "file", "mkdir", str(XRAY_CONFIG_DIR)]
+        )
+
+        zip_url = (
+            "https://github.com/XTLS/Xray-core/releases/"
+            "latest/download/Xray-linux-{}.zip"
+        ).format(machine)
+
         dl_result = await run_command(
             [
                 "sudo", VPNBOT_CTL, "curl-dl", "download",
-                XRAY_INSTALL_URL, "/tmp/xray-install.sh",
+                zip_url, "/tmp/xray.zip",
             ],
-            timeout=60.0,
+            timeout=120.0,
         )
         if not dl_result.success:
             raise RuntimeError(
-                f"Failed to download Xray installer: {dl_result.stderr}"
+                f"Failed to download Xray: {dl_result.stderr}"
             )
-        result = await run_command(
-            [
-                "sudo", VPNBOT_CTL, "file", "chmod", "755", "/tmp/xray-install.sh",
-            ],
+
+        unzip_result = await run_command(
+            ["sudo", "unzip", "-o", "/tmp/xray.zip",
+             "-d", "/tmp/xray-extract"],
+            timeout=30.0,
+        )
+        if not unzip_result.success:
+            raise RuntimeError(
+                f"Failed to extract Xray: {unzip_result.stderr}"
+            )
+
+        cp_result = await run_command(
+            ["sudo", VPNBOT_CTL, "file", "cp",
+             "/tmp/xray-extract/xray", XRAY_BINARY],
             timeout=10.0,
         )
-        result = await run_command(
-            [
-                "sudo", VPNBOT_CTL, "bash-run", "/tmp/xray-install.sh",
-                "install",
-            ],
-            timeout=180.0,
-        )
-        if not result.success:
-            logger.error("Xray install failed: %s", result.stderr)
+        if not cp_result.success:
             raise RuntimeError(
-                f"Xray installation failed: {result.stderr}"
+                f"Failed to copy Xray binary: {cp_result.stderr}"
             )
+
+        await run_command(
+            ["sudo", VPNBOT_CTL, "file", "chmod", "755", XRAY_BINARY]
+        )
+
+        await run_command(
+            ["sudo", "rm", "-rf", "/tmp/xray.zip", "/tmp/xray-extract"]
+        )
 
     async def _generate_reality_keys(self) -> None:
         logger.info("Generating REALITY keys")
