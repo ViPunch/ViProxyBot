@@ -274,7 +274,7 @@ class VlessAdapter(ProtocolAdapter):
 
     async def _validate_and_restart(self) -> bool:
         validate_result = await run_command(
-            ["sudo", XRAY_BINARY, "test", "-config", str(self.config_path)],
+            [XRAY_BINARY, "run", "-test", "-config", str(self.config_path)],
             timeout=10.0,
         )
         if not validate_result.success:
