@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from pathlib import Path
 
 from cryptography.fernet import Fernet
+
+_SALT = b"vpnbot-secret-store-v1"
 
 
 class SecretStore:
@@ -51,5 +54,11 @@ class SecretStore:
 
     @staticmethod
     def _derive_key(encryption_key: str) -> bytes:
-        raw = encryption_key.encode("utf-8")[:32].ljust(32, b"0")
-        return base64.urlsafe_b64encode(raw)
+        derived = hashlib.pbkdf2_hmac(
+            "sha256",
+            encryption_key.encode("utf-8"),
+            _SALT,
+            iterations=100_000,
+            dklen=32,
+        )
+        return base64.urlsafe_b64encode(derived)

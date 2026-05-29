@@ -1,13 +1,53 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Temp files
+*.tmp
+*.temp
+*.cache
+*.swp
+
+# Python
 __pycache__/
 *.pyc
-.env
-!.env.example
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+*.egg-info/
+__pycache__/
+.venv/
+venv/
+
+# Databases & Data
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
-.venv/
-venv/
-.pytest_cache/
-*.egg-info/
 data/
+
+# Environment & Secrets
+.env
+!.env.example
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.project
+
+# Build/Artifacts
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+test-results/
+

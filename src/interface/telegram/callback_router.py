@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery
 
 from src.domain.enums import ProtocolType
 from src.domain.exceptions import ClientNotFoundError
-from src.interface.telegram.commands import MenuStates
+from src.interface.telegram.commands import MenuStates, _get_client_names
 from src.interface.telegram.i18n import t
 from src.interface.telegram.keyboards import (
     client_list_keyboard,
@@ -158,8 +158,6 @@ async def callback_ssl_selection(
     await state.update_data(install_ssl_type=ssl_type)
 
     if ssl_type == "domain":
-        from src.interface.telegram.commands import MenuStates
-
         await state.set_state(MenuStates.ask_ssl_domain)
         await callback.message.edit_text(
             t(lang, "ask_ssl_domain"),
@@ -634,23 +632,6 @@ async def callback_noop(callback: CallbackQuery) -> None:
 
 
 # --- Helpers ---
-
-
-def _get_client_names(adapter) -> list[str]:
-    try:
-        from src.infrastructure.protocols.vless.config_writer import (
-            get_clients_from_config,
-            load_config,
-        )
-
-        config_path = getattr(adapter, "config_path", None)
-        if config_path is None:
-            return []
-        config = load_config(config_path)
-        clients = get_clients_from_config(config)
-        return [c.get("email", "?") for c in clients]
-    except Exception:
-        return []
 
 
 async def _get_statuses(

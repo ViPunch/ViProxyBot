@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.infrastructure.shell_runner import run_command
@@ -30,7 +30,7 @@ class Updater:
 
     async def backup_before_update(self) -> str:
         self.backups_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         backup_path = self.backups_dir / f"pre-update-{timestamp}"
         shutil.copytree(self.app_dir, backup_path, dirs_exist_ok=True)
         logger.info("Backup created", extra={"path": str(backup_path)})

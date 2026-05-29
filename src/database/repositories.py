@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import cast
 
 import aiosqlite
@@ -25,7 +25,7 @@ class AdminRepository:
         is_active: bool = True,
         last_seen_at: datetime | None = None,
     ) -> None:
-        created_at = datetime.utcnow().isoformat()
+        created_at = datetime.now(timezone.utc).isoformat()
         await self.conn.execute(
             """
             INSERT INTO admins (telegram_user_id, is_active, created_at, last_seen_at)
@@ -162,7 +162,7 @@ class ClientRepository:
         *,
         created_at: datetime | None = None,
     ) -> ClientAccount:
-        created_at = created_at or datetime.utcnow()
+        created_at = created_at or datetime.now(timezone.utc)
         cursor = await self.conn.execute(
             """
             INSERT INTO clients (
@@ -210,18 +210,29 @@ class TrafficRepository:
         rx_bytes: int,
         tx_bytes: int,
     ) -> None:
+        client_id: int | None = None
+        if client_name:
+            cursor = await self.conn.execute(
+                "SELECT id FROM clients WHERE protocol = ? AND external_name = ?",
+                (protocol.value, client_name),
+            )
+            row = await cursor.fetchone()
+            if row:
+                client_id = int(row[0])
+
         await self.conn.execute(
             """
             INSERT INTO traffic_snapshots (
                 protocol, client_id, rx_bytes, tx_bytes, collected_at
             )
-            VALUES (?, NULL, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 protocol.value,
+                client_id,
                 rx_bytes,
                 tx_bytes,
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         await self.conn.commit()
@@ -293,9 +304,10 @@ class TrafficRepository:
         ]
 
     async def revoke_client(self, client_id: int) -> None:
+        now = datetime.now(timezone.utc).isoformat()
         await self.conn.execute(
             "UPDATE clients SET status = ?, revoked_at = ? WHERE id = ?",
-            (ClientStatus.REVOKED.value, datetime.utcnow().isoformat(), client_id),
+            (ClientStatus.REVOKED.value, now, client_id),
         )
         await self.conn.commit()
 
@@ -339,7 +351,7 @@ class AuditRepository:
         *,
         created_at: datetime | None = None,
     ) -> AuditEvent:
-        created_at = created_at or datetime.utcnow()
+        created_at = created_at or datetime.now(timezone.utc)
         cursor = await self.conn.execute(
             """
             INSERT INTO audit_events (

@@ -414,17 +414,21 @@ async def _build_install_keyboard(lang, protocol_registry):
 
 
 def _get_client_names(adapter) -> list[str]:
-    try:
-        from src.infrastructure.protocols.vless.config_writer import (
-            get_clients_from_config,
-            load_config,
-        )
-
-        config_path = getattr(adapter, "config_path", None)
-        if config_path is None:
-            return []
-        config = load_config(config_path)
-        clients = get_clients_from_config(config)
-        return [c.get("email", "?") for c in clients]
-    except Exception:
+    config_path = getattr(adapter, "config_path", None)
+    if config_path is None:
         return []
+
+    try:
+        if str(config_path).endswith(".json"):
+            from src.infrastructure.protocols.vless.config_writer import (
+                get_clients_from_config,
+                load_config,
+            )
+            config = load_config(config_path)
+            clients = get_clients_from_config(config)
+            return [c.get("email", "?") for c in clients]
+        elif str(config_path).endswith((".yaml", ".yml")):
+            return []
+    except Exception:
+        pass
+    return []

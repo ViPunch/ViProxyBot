@@ -19,9 +19,6 @@ class ProtocolRegistry:
     def get(self, protocol: ProtocolType) -> ProtocolAdapter | None:
         return self._adapters.get(protocol)
 
-    def list_protocols(self) -> list[ProtocolType]:
-        return list(self._adapters.keys())
-
     def list_registered(self) -> list[ProtocolType]:
         return list(self._adapters.keys())
 
