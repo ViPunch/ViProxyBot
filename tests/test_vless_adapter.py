@@ -426,7 +426,7 @@ class TestGenerateRealityKeys:
 
         mock_result = ShellResult(
             returncode=0,
-            stdout="Private key: test-priv-key-123\nPublic key: test-pub-key-456",
+            stdout="PrivateKey: test-priv-key-123\nPassword (PublicKey): test-pub-key-456",
             stderr="",
             success=True,
         )
@@ -447,7 +447,7 @@ class TestGenerateRealityKeys:
         assert adapter._public_key == "test-pub-key-456"
         assert len(adapter._short_id) == 16
 
-    def test_parse_x25519_output_case_insensitive(
+    def test_parse_x25519_output_old_format(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         import asyncio
@@ -463,7 +463,7 @@ class TestGenerateRealityKeys:
 
         mock_result = ShellResult(
             returncode=0,
-            stdout="private key: lower-case-key\npublic key: upper-case-key",
+            stdout="Private key: old-format-priv\nPublic key: old-format-pub",
             stderr="",
             success=True,
         )
@@ -480,8 +480,8 @@ class TestGenerateRealityKeys:
             await adapter._generate_reality_keys()
 
         asyncio.run(run_test())
-        assert adapter._private_key == "lower-case-key"
-        assert adapter._public_key == "upper-case-key"
+        assert adapter._private_key == "old-format-priv"
+        assert adapter._public_key == "old-format-pub"
 
     def test_parse_x25519_output_raises_on_empty(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

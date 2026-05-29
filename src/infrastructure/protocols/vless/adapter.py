@@ -369,13 +369,14 @@ class VlessAdapter(ProtocolAdapter):
                 f"Failed to generate REALITY keys: {result.stderr}"
             )
 
-        logger.debug("x25519 output: %s", result.stdout)
+        logger.info("x25519 stdout: %r", result.stdout)
 
-        for line in result.stdout.splitlines():
+        for i, line in enumerate(result.stdout.splitlines()):
+            logger.debug("x25519 line[%d]: %r", i, line)
             line_lower = line.lower()
-            if "private" in line_lower and "key" in line_lower:
+            if "private" in line_lower:
                 self._private_key = line.split(":", 1)[1].strip()
-            elif "public" in line_lower and "key" in line_lower:
+            elif "public" in line_lower or "password" in line_lower:
                 self._public_key = line.split(":", 1)[1].strip()
 
         self._short_id = uuid.uuid4().hex[:16]
