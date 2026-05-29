@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from aiogram import Router
 from aiogram.fsm.context import FSMContext
@@ -837,7 +838,8 @@ async def callback_vless_confirm(
         )
 
         config_path = getattr(adapter, "config_path", None)
-        if not config_path or not config_path.exists():
+        xray_installed = Path("/usr/local/bin/xray").exists()
+        if not xray_installed or not config_path or not config_path.exists():
             await adapter.install_base(host)  # type: ignore[attr-defined]
 
         await adapter.create_inbound(inbound_config)  # type: ignore[attr-defined]
