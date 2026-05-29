@@ -121,7 +121,25 @@ class Hysteria2Adapter(ProtocolAdapter):
         self, external_name: str
     ) -> tuple[str, str]:
         if not self.config_path.exists():
-            raise ServiceReloadError("Hysteria2 config not found")
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            password = str(uuid.uuid4())
+            cert_path, key_path = await self._resolve_cert_paths(
+                self.public_host
+            )
+            create_server_config(
+                self.config_path,
+                self._listen_port,
+                cert_path=cert_path,
+                key_path=key_path,
+                auth_password=password,
+                stats_listen="127.0.0.1:25199",
+                stats_secret=str(uuid.uuid4()),
+            )
+            if not await self._validate_and_restart():
+                raise ServiceReloadError(
+                    "Hysteria2 restart failed after config creation"
+                )
+            return password, external_name
 
         await self.backup_config()
 
