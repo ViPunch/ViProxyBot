@@ -85,16 +85,16 @@ class VlessAdapter(ProtocolAdapter):
         )
 
     async def detect(self) -> ProtocolStatus:
-        if not Path(XRAY_BINARY).exists():
-            return ProtocolStatus.NOT_INSTALLED
-        if not self.config_path.exists():
-            return ProtocolStatus.NOT_INSTALLED
         try:
             result = await run_command(
                 ["systemctl", "is-active", self.service_name]
             )
             if result.success and result.stdout == "active":
                 return ProtocolStatus.ACTIVE
+            if not Path(XRAY_BINARY).exists():
+                return ProtocolStatus.NOT_INSTALLED
+            if not self.config_path.exists():
+                return ProtocolStatus.NOT_INSTALLED
             return ProtocolStatus.DEGRADED
         except FileNotFoundError:
             return ProtocolStatus.NOT_INSTALLED
