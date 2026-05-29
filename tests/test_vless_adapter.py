@@ -28,7 +28,7 @@ def _make_xray_config(
                 "port": listen_port,
                 "protocol": "vless",
                 "settings": {
-                    "clients": clients or [],
+                    "users": clients or [],
                     "decryption": "none",
                 },
                 "streamSettings": {
@@ -53,6 +53,7 @@ class TestConfigWriter:
         assert len(clients) == 1
         assert clients[0]["id"] == "uuid-1"
         assert clients[0]["email"] == "alice"
+        assert clients[0]["flow"] == "xtls-rprx-vision"
 
     def test_add_multiple_clients(self, tmp_path: Path) -> None:
         config = _make_xray_config()
@@ -60,6 +61,12 @@ class TestConfigWriter:
         config = add_client_to_config(config, "uuid-2", "bob")
         clients = get_clients_from_config(config)
         assert len(clients) == 2
+
+    def test_add_duplicate_client_raises(self, tmp_path: Path) -> None:
+        config = _make_xray_config()
+        config = add_client_to_config(config, "uuid-1", "alice")
+        with pytest.raises(ValueError, match="already exists"):
+            add_client_to_config(config, "uuid-2", "alice")
 
     def test_remove_client(self, tmp_path: Path) -> None:
         config = _make_xray_config()
@@ -167,7 +174,7 @@ class TestLinkGeneration:
     ) -> None:
         config_path = tmp_path / "config.json"
         config = _make_xray_config(
-            clients=[{"id": "uuid-1", "email": "alice"}]
+            clients=[{"id": "uuid-1", "email": "alice", "flow": "xtls-rprx-vision"}]
         )
         save_config(config_path, config)
 
@@ -316,3 +323,86 @@ class TestCreateClientAutoKeyGeneration:
         assert len(credential) > 0
         assert config_path.exists()
         assert adapter._private_key == "auto-priv"
+
+
+class TestValidation:
+    def test_create_client_empty_name_raises(
+        self, tmp_path: Path
+    ) -> None:
+        import asyncio
+
+        config_path = tmp_path / "config.json"
+        save_config(config_path, _make_xray_config())
+
+        adapter = VlessAdapter(
+            config_path=config_path,
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+        with pytest.raises(ValueError, match="cannot be empty"):
+            asyncio.run(adapter.create_client(""))
+
+    def test_create_client_whitespace_name_raises(
+        self, tmp_path: Path
+    ) -> None:
+        import asyncio
+
+        config_path = tmp_path / "config.json"
+        save_config(config_path, _make_xray_config())
+
+        adapter = VlessAdapter(
+            config_path=config_path,
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+        with pytest.raises(ValueError, match="cannot be empty"):
+            asyncio.run(adapter.create_client("   "))
+
+    def test_delete_client_empty_identifier_raises(
+        self, tmp_path: Path
+    ) -> None:
+        import asyncio
+
+        config_path = tmp_path / "config.json"
+        save_config(config_path, _make_xray_config())
+
+        adapter = VlessAdapter(
+            config_path=config_path,
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+        with pytest.raises(ValueError, match="cannot be empty"):
+            asyncio.run(adapter.delete_client(""))
+
+    def test_install_invalid_port_raises(self, tmp_path: Path) -> None:
+        import asyncio
+
+        adapter = VlessAdapter(
+            config_path=tmp_path / "config.json",
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+        with pytest.raises(ValueError, match="Invalid port"):
+            asyncio.run(adapter.install(0, "1.2.3.4"))
+
+    def test_install_port_too_high_raises(self, tmp_path: Path) -> None:
+        import asyncio
+
+        adapter = VlessAdapter(
+            config_path=tmp_path / "config.json",
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+        with pytest.raises(ValueError, match="Invalid port"):
+            asyncio.run(adapter.install(99999, "1.2.3.4"))
+
+    def test_install_empty_host_raises(self, tmp_path: Path) -> None:
+        import asyncio
+
+        adapter = VlessAdapter(
+            config_path=tmp_path / "config.json",
+            backups_dir=tmp_path / "backups",
+            public_host="1.2.3.4",
+        )
+        with pytest.raises(ValueError, match="public_host is required"):
+            asyncio.run(adapter.install(443, ""))

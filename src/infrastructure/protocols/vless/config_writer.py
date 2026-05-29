@@ -12,7 +12,7 @@ def create_initial_config(config_path: Path, listen_port: int) -> None:
                 "port": listen_port,
                 "protocol": "vless",
                 "settings": {
-                    "clients": [],
+                    "users": [],
                     "decryption": "none",
                 },
                 "streamSettings": {
@@ -40,22 +40,28 @@ def save_config(config_path: Path, config: dict) -> None:
 
 def add_client_to_config(config: dict, uuid: str, email: str) -> dict:
     updated_config = json.loads(json.dumps(config))
-    clients = updated_config["inbounds"][0]["settings"].setdefault("clients", [])
-    clients.append({"id": uuid, "email": email})
+    users = updated_config["inbounds"][0]["settings"].setdefault("users", [])
+    if any(u.get("email") == email for u in users):
+        raise ValueError(f"Client with email '{email}' already exists")
+    users.append({
+        "id": uuid,
+        "email": email,
+        "flow": "xtls-rprx-vision",
+    })
     return updated_config
 
 
 def remove_client_from_config(config: dict, email: str) -> dict:
     updated_config = json.loads(json.dumps(config))
-    clients = updated_config["inbounds"][0]["settings"].get("clients", [])
-    updated_config["inbounds"][0]["settings"]["clients"] = [
-        client for client in clients if client.get("email") != email
+    users = updated_config["inbounds"][0]["settings"].get("users", [])
+    updated_config["inbounds"][0]["settings"]["users"] = [
+        user for user in users if user.get("email") != email
     ]
     return updated_config
 
 
 def get_clients_from_config(config: dict) -> list[dict]:
-    return list(config["inbounds"][0]["settings"].get("clients", []))
+    return list(config["inbounds"][0]["settings"].get("users", []))
 
 
 def get_listen_port_from_config(config: dict) -> int:

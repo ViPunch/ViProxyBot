@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import uuid
 from datetime import datetime, timezone
@@ -83,6 +84,10 @@ class VlessAdapter(ProtocolAdapter):
         path.write_text(
             json.dumps(data, indent=2) + "\n", encoding="utf-8"
         )
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            logger.warning("Failed to set permissions on %s", path)
 
     async def detect(self) -> ProtocolStatus:
         try:
@@ -102,6 +107,11 @@ class VlessAdapter(ProtocolAdapter):
     async def install(
         self, listen_port: int, public_host: str
     ) -> InstallResult:
+        if not 1 <= listen_port <= 65535:
+            raise ValueError(f"Invalid port: {listen_port}")
+        if not public_host:
+            raise ValueError("public_host is required")
+
         self.public_host = public_host
         self._listen_port = listen_port
 
@@ -136,6 +146,9 @@ class VlessAdapter(ProtocolAdapter):
     async def create_client(
         self, external_name: str
     ) -> tuple[str, str]:
+        if not external_name or not external_name.strip():
+            raise ValueError("Client name cannot be empty")
+
         if not self.config_path.exists():
             if not self._private_key:
                 if not Path(XRAY_BINARY).exists():
@@ -161,6 +174,9 @@ class VlessAdapter(ProtocolAdapter):
         return credential, external_name
 
     async def delete_client(self, identifier: str) -> None:
+        if not identifier or not identifier.strip():
+            raise ValueError("Client identifier cannot be empty")
+
         if not self.config_path.exists():
             raise ServiceReloadError("Xray config not found")
 
@@ -227,6 +243,10 @@ class VlessAdapter(ProtocolAdapter):
         if not self._public_key:
             raise ServiceReloadError(
                 "REALITY keys not loaded. Install VLESS first."
+            )
+        if not self.public_host:
+            raise ServiceReloadError(
+                "public_host not set. Install VLESS first."
             )
         config = load_config(self.config_path)
         for client in get_clients_from_config(config):
@@ -368,7 +388,7 @@ class VlessAdapter(ProtocolAdapter):
                     "port": listen_port,
                     "protocol": "vless",
                     "settings": {
-                        "clients": [],
+                        "users": [],
                         "decryption": "none",
                     },
                     "streamSettings": {
