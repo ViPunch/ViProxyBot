@@ -202,8 +202,15 @@ class VlessAdapter(ProtocolAdapter):
             result = await run_command(
                 ["sudo", VPNBOT_CTL, "service", "restart", self.service_name]
             )
+            if not result.success:
+                logger.error(
+                    "Service restart failed: stdout=%r stderr=%r",
+                    result.stdout,
+                    result.stderr,
+                )
             return result.success
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
+            logger.error("Service restart error: %s", exc)
             return False
 
     async def health(self) -> HealthResult:
@@ -267,12 +274,13 @@ class VlessAdapter(ProtocolAdapter):
 
     async def _validate_and_restart(self) -> bool:
         validate_result = await run_command(
-            [XRAY_BINARY, "test", "-config", str(self.config_path)],
+            ["sudo", XRAY_BINARY, "test", "-config", str(self.config_path)],
             timeout=10.0,
         )
         if not validate_result.success:
             logger.error(
-                "Xray config validation failed: %s",
+                "Xray config validation failed: stdout=%r stderr=%r",
+                validate_result.stdout,
                 validate_result.stderr,
             )
             await self._rollback_config()
