@@ -375,8 +375,8 @@ class VlessAdapter(ProtocolAdapter):
             )
 
         unzip_result = await run_command(
-            ["sudo", "unzip", "-o", "/tmp/xray.zip",
-             "-d", "/tmp/xray-extract"],
+            ["sudo", VPNBOT_CTL, "archive", "extract",
+             "/tmp/xray.zip", "/tmp/xray-extract"],
             timeout=30.0,
         )
         if not unzip_result.success:

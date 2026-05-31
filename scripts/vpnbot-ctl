@@ -25,6 +25,7 @@ Groups:
   git       <clone> <url> <dest>
   make      <build> <dir>
   curl-dl   <download> <url> <dest>
+  archive   <extract> <zip-file> <dest-dir>
 EOF
   exit 1
 }
@@ -189,6 +190,18 @@ case "${GROUP}" in
         exec curl -fsSL "${URL}" -o "${DEST}"
         ;;
       *) die "curl-dl: unknown action '${ACTION}'" ;;
+    esac
+    ;;
+
+  archive)
+    case "${ACTION}" in
+      extract)
+        [[ $# -ge 2 ]] || die "archive extract: need zip-file and dest-dir"
+        ZIP="$1"
+        DEST="$2"
+        exec unzip -o "${ZIP}" -d "${DEST}"
+        ;;
+      *) die "archive: unknown action '${ACTION}'" ;;
     esac
     ;;
 
