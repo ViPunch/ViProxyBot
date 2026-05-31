@@ -23,6 +23,7 @@ while [[ $# -gt 0 ]]; do
     --branch) REPO_BRANCH="$2"; shift 2 ;;
     -h|--help)
       echo "Usage: sudo bash install.sh [--repo <url>] [--branch <name>]"
+      echo "   or: sudo bash <(curl -fsSL https://raw.githubusercontent.com/ViPunch/ViProxyBot/main/scripts/install.sh)"
       exit 0
       ;;
     *) echo "Unknown: $1"; exit 1 ;;
@@ -31,6 +32,7 @@ done
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run as root: sudo bash install.sh"
+  echo "Remote install: sudo bash <(curl -fsSL https://raw.githubusercontent.com/ViPunch/ViProxyBot/main/scripts/install.sh)"
   exit 1
 fi
 
