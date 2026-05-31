@@ -176,6 +176,9 @@ class TestLinkGeneration:
         config = _make_xray_config(
             clients=[{"id": "uuid-1", "email": "alice", "flow": "xtls-rprx-vision"}]
         )
+        config["inbounds"][0]["streamSettings"]["realitySettings"][
+            "fingerprint"
+        ] = "firefox"
         save_config(config_path, config)
 
         keys_data = {
@@ -198,6 +201,7 @@ class TestLinkGeneration:
         assert "pbk=pub-key-123" in link
         assert "sid=sid-456" in link
         assert "sni=www.microsoft.com" in link
+        assert "fp=firefox" in link
 
     def test_generate_link_raises_for_missing_client(
         self, tmp_path: Path

@@ -291,6 +291,8 @@ class VlessAdapter(ProtocolAdapter):
                 "public_host not set. Install VLESS first."
             )
         config = load_config(self.config_path)
+        stream_settings = config["inbounds"][0].get("streamSettings", {})
+        reality_settings = stream_settings.get("realitySettings", {})
         for client in get_clients_from_config(config):
             if client.get("email") == email:
                 return generate_vless_link(
@@ -298,9 +300,12 @@ class VlessAdapter(ProtocolAdapter):
                     self.public_host,
                     get_listen_port_from_config(config),
                     remark=email,
+                    network=stream_settings.get("network", "tcp"),
+                    security=stream_settings.get("security", "reality"),
                     public_key=self._public_key,
                     short_id=self._short_id,
                     sni=self._sni_domain or VLESS_REALITY_SNI,
+                    fingerprint=reality_settings.get("fingerprint", "chrome"),
                 )
         raise ClientNotFoundError(email)
 
