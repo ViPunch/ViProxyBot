@@ -3,7 +3,7 @@
 ## Установка
 
 ```bash
-sudo bash <(curl -fsSL <url>/scripts/install.sh) --repo <repo-url>
+curl -fsSL <url>/scripts/install.sh | sudo bash -s -- --repo <repo-url>
 ```
 
 Или из локальной копии:
