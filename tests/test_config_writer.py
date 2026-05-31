@@ -26,3 +26,20 @@ def test_add_and_remove_client(temp_config_path) -> None:
 
     removed = remove_client_from_config(updated, 'user1')
     assert get_clients_from_config(removed) == []
+
+
+def test_reads_legacy_users_field(temp_config_path) -> None:
+    config = {
+        'inbounds': [
+            {
+                'port': 443,
+                'settings': {
+                    'users': [
+                        {'id': 'uuid-1', 'email': 'legacy', 'flow': 'xtls-rprx-vision'}
+                    ]
+                },
+            }
+        ]
+    }
+
+    assert get_clients_from_config(config)[0]['email'] == 'legacy'

@@ -12,7 +12,7 @@ def create_initial_config(config_path: Path, listen_port: int) -> None:
                 "port": listen_port,
                 "protocol": "vless",
                 "settings": {
-                    "users": [],
+                    "clients": [],
                     "decryption": "none",
                 },
                 "streamSettings": {
@@ -40,10 +40,16 @@ def save_config(config_path: Path, config: dict) -> None:
 
 def add_client_to_config(config: dict, uuid: str, email: str) -> dict:
     updated_config = json.loads(json.dumps(config))
-    users = updated_config["inbounds"][0]["settings"].setdefault("users", [])
-    if any(u.get("email") == email for u in users):
+    settings = updated_config["inbounds"][0].setdefault("settings", {})
+    clients = settings.pop("users", None)
+    if clients is None:
+        clients = settings.setdefault("clients", [])
+    else:
+        settings["clients"] = clients
+
+    if any(u.get("email") == email for u in clients):
         raise ValueError(f"Client with email '{email}' already exists")
-    users.append({
+    clients.append({
         "id": uuid,
         "email": email,
         "flow": "xtls-rprx-vision",
@@ -53,15 +59,22 @@ def add_client_to_config(config: dict, uuid: str, email: str) -> dict:
 
 def remove_client_from_config(config: dict, email: str) -> dict:
     updated_config = json.loads(json.dumps(config))
-    users = updated_config["inbounds"][0]["settings"].get("users", [])
-    updated_config["inbounds"][0]["settings"]["users"] = [
-        user for user in users if user.get("email") != email
+    settings = updated_config["inbounds"][0].setdefault("settings", {})
+    clients = settings.pop("users", None)
+    if clients is None:
+        clients = settings.get("clients", [])
+    settings["clients"] = [
+        client for client in clients if client.get("email") != email
     ]
     return updated_config
 
 
 def get_clients_from_config(config: dict) -> list[dict]:
-    return list(config["inbounds"][0]["settings"].get("users", []))
+    settings = config["inbounds"][0].get("settings", {})
+    clients = settings.get("clients")
+    if clients is not None:
+        return list(clients)
+    return list(settings.get("users", []))
 
 
 def get_listen_port_from_config(config: dict) -> int:

@@ -28,7 +28,7 @@ def _make_xray_config(
                 "port": listen_port,
                 "protocol": "vless",
                 "settings": {
-                    "users": clients or [],
+                    "clients": clients or [],
                     "decryption": "none",
                 },
                 "streamSettings": {

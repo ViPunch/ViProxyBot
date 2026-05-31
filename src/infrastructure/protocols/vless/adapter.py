@@ -483,7 +483,7 @@ class VlessAdapter(ProtocolAdapter):
             "port": config.port,
             "protocol": "vless",
             "settings": {
-                "users": [],
+                "clients": [],
                 "decryption": "none",
             },
             "streamSettings": self._build_stream_settings(config),
