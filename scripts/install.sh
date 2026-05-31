@@ -79,6 +79,14 @@ python3 -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/pip" install --upgrade pip -q
 "${VENV_DIR}/bin/pip" install -e "${APP_DIR}" -q
 
+echo "==> Installing vi-proxy launcher..."
+cat > /usr/local/bin/vi-proxy <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec "${VENV_DIR}/bin/vi-proxy" "$@"
+EOF
+chmod 0755 /usr/local/bin/vi-proxy
+
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo ""
   echo "=========================================="
@@ -316,9 +324,14 @@ EOF
   echo "  Open your bot in Telegram and send /start"
   echo ""
   echo "  Management:"
-  echo "    Status:  systemctl status vpnbot"
-  echo "    Logs:    journalctl -u vpnbot -f"
-  echo "    Stop:    systemctl stop vpnbot"
+  echo "    Status:  vi-proxy status"
+  echo "    Logs:    vi-proxy logs -f"
+  echo "    Enable:  vi-proxy enable"
+  echo "    Stop:    vi-proxy stop"
+  echo "    Start:   vi-proxy start"
+  echo "    Restart: vi-proxy restart"
+  echo "    Update:  vi-proxy update"
+  echo "    Remove:  sudo bash ${APP_DIR}/scripts/uninstall.sh"
   echo ""
 else
   echo ""
@@ -326,7 +339,10 @@ else
   echo "  ViProxyBot installed!"
   echo "=========================================="
   echo ""
-  echo "  Start: sudo ${RUN_SCRIPT}"
+  echo "  Start: vi-proxy run"
+  echo "  Run script: ${RUN_SCRIPT}"
+  echo "  Update: vi-proxy update"
+  echo "  Remove: sudo bash ${APP_DIR}/scripts/uninstall.sh"
   echo "  systemd not detected, use the run script above."
   echo ""
 fi

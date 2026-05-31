@@ -30,18 +30,18 @@ curl -fsSL https://raw.githubusercontent.com/ViPunch/ViProxyBot/main/scripts/ins
 sudo bash scripts/install.sh
 ```
 
-После установки заполнить `.env` и запустить:
+После установки заполнить `.env` и перезапустить:
 
 ```bash
 sudo nano /opt/vpnbot/.env
-sudo systemctl restart vpnbot
+vi-proxy restart
 ```
 
 На WSL (без systemd):
 
 ```bash
 sudo nano /opt/vpnbot/.env
-/opt/vpnbot/run.sh
+vi-proxy run
 ```
 
 ## Заполнение .env
@@ -87,14 +87,22 @@ python -m src.main
 
 **systemd (VPS):**
 ```bash
-sudo systemctl status vpnbot
-sudo systemctl restart vpnbot
-sudo journalctl -u vpnbot -f
+vi-proxy status
+vi-proxy restart
+vi-proxy enable
+vi-proxy update
+vi-proxy logs -f
 ```
 
 **WSL / без systemd:**
 ```bash
-/opt/vpnbot/run.sh
+vi-proxy run
+```
+
+Удаление для чистой переустановки:
+
+```bash
+sudo bash /opt/vpnbot/app/scripts/uninstall.sh
 ```
 
 ## Разработка

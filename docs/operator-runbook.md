@@ -16,20 +16,28 @@ sudo bash scripts/install.sh
 
 ```bash
 sudo nano /opt/vpnbot/.env
-sudo systemctl restart vpnbot
+vi-proxy restart
 ```
 
 ## Проверка статуса
 
 ```bash
-sudo systemctl status vpnbot
-sudo journalctl -u vpnbot -f
+vi-proxy status
+vi-proxy enable
+vi-proxy restart
+vi-proxy logs -f
 ```
 
 ## Обновление
 
 ```bash
 sudo bash /opt/vpnbot/app/scripts/update.sh
+```
+
+Или через launcher:
+
+```bash
+vi-proxy update
 ```
 
 Скрипт автоматически:
@@ -42,6 +50,12 @@ sudo bash /opt/vpnbot/app/scripts/update.sh
 
 ```bash
 sudo bash /opt/vpnbot/app/scripts/restore.sh /opt/vpnbot/backups/pre-update-YYYYMMDDHHMMSS
+```
+
+## Чистое удаление
+
+```bash
+sudo bash /opt/vpnbot/app/scripts/uninstall.sh
 ```
 
 ## Расположение файлов
