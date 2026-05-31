@@ -161,13 +161,8 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   done
 
   echo ""
-  echo "--- VLESS/REALITY (always installed) ---"
-  VLESS_PORT_INPUT="443"
-  read -rp "VLESS TCP port [443]: " VLESS_PORT_INPUT </dev/tty
-  VLESS_PORT_INPUT="${VLESS_PORT_INPUT:-443}"
-
-  echo ""
   echo "--- Hysteria2 (optional, UDP/QUIC VPN) ---"
+  VLESS_PORT_INPUT="443"
   read -rp "Install Hysteria2? [y/N]: " INSTALL_HYSTERIA </dev/tty
   HYSTERIA_PORT_INPUT=""
   if [[ "${INSTALL_HYSTERIA}" =~ ^[Yy] ]]; then
@@ -193,7 +188,6 @@ SSL_MODE=${SSL_MODE_INPUT}
 DOMAIN=${DOMAIN_INPUT}
 SSL_CERT_PATH=${SSL_CERT_PATH_INPUT}
 SSL_KEY_PATH=${SSL_KEY_PATH_INPUT}
-VLESS_PORT=${VLESS_PORT_INPUT}
 HYSTERIA_PORT=${HYSTERIA_PORT_INPUT}
 ENVEOF
   chmod 600 "${ENV_FILE}"
