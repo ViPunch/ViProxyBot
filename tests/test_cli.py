@@ -96,3 +96,11 @@ def test_update_uses_project_script(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert exit_code == 0
     assert commands == [["bash", str(update_script)]]
+
+
+def test_main_without_args_shows_help(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = cli.main([])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "usage: vi-proxy" in captured.out
