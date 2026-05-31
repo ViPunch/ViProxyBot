@@ -145,9 +145,6 @@ class VlessAdapter(ProtocolAdapter):
         await run_command(
             ["sudo", VPNBOT_CTL, "service", "reload", "_"]
         )
-        await run_command(
-            ["sudo", VPNBOT_CTL, "service", "enable", self.service_name]
-        )
 
         logger.info("VLESS base installed successfully")
 
@@ -164,6 +161,10 @@ class VlessAdapter(ProtocolAdapter):
             self._create_reality_config(config)
         else:
             self._create_tls_config(config)
+
+        await run_command(
+            ["sudo", VPNBOT_CTL, "service", "enable", self.service_name]
+        )
 
         if not await self._validate_and_restart():
             raise ServiceReloadError(
